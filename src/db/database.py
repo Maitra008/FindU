@@ -134,5 +134,5 @@ def init_db(engine: Optional[Engine] = None, seed_defaults: bool = True) -> None
                 ]
                 session.add_all(default_cameras)
                 session.commit()
-                logger.info("Seeded %d default cameras (C1-C4) into database (C1, C2 active; C3, C4 disabled).", len(default_cameras))
+                logger.info("Seeded %d default cameras (C1-C4); C3/C4 are disabled until real sources are configured.", len(default_cameras))
 

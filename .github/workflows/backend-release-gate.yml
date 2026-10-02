@@ -2,9 +2,13 @@ name: Backend Release Gate
 
 on:
   push:
-    branches: [ main, backend-hardening-part4 ]
+    branches:
+      - main
+      - backend-hardening-part4
   pull_request:
-    branches: [ main, backend-hardening-part4 ]
+    branches:
+      - main
+      - backend-hardening-part4
 
 jobs:
   backend-gate:
@@ -59,5 +63,4 @@ jobs:
 
       - name: Verify Docker Build
         run: |
-          docker build -t findu-backend:test .
-
+          docker build -t findu-backend:release-gate .

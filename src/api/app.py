@@ -5,6 +5,7 @@ Provides REST API endpoints, database initialization, and real-time WebSocket al
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -40,9 +41,9 @@ def create_app(
             engine = get_engine(database_url)
             init_db(engine=engine, seed_defaults=True)
 
+        worker_mgr = get_worker_manager()
         if load_workers:
-            worker_mgr = get_worker_manager()
-            worker_mgr.load_cameras_from_db(enabled_only=False)
+            worker_mgr.load_cameras_from_db(enabled_only=True)
 
         logger.info("FastAPI application started successfully.")
         yield
@@ -51,6 +52,15 @@ def create_app(
         worker_mgr = get_worker_manager()
         worker_mgr.stop_all()
         logger.info("FastAPI application shutdown complete.")
+
+    configured_origins = [
+        origin.strip()
+        for origin in os.getenv(
+            "FRONTEND_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173",
+        ).split(",")
+        if origin.strip()
+    ]
 
     app = FastAPI(
         title="Missing Person Recognition & Alert System",
@@ -62,7 +72,7 @@ def create_app(
     # CORS Middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=configured_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

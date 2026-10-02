@@ -28,6 +28,7 @@ services:
       HOST: 0.0.0.0
       PORT: 8000
       SIMILARITY_THRESHOLD: "0.89"
+      FRONTEND_ORIGINS: "${FRONTEND_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}"
     ports:
       - "8000:8000"
     depends_on:

@@ -8,6 +8,7 @@ import logging
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
+from sqlalchemy.exc import IntegrityError
 
 from src.db.models import AlertRecord, TrackRecord
 
@@ -74,7 +75,23 @@ class AlertRepository:
             snapshot_path=snapshot_path,
         )
         self.session.add(alert)
-        self.session.commit()
+        try:
+            self.session.commit()
+        except IntegrityError:
+            self.session.rollback()
+            existing = (
+                self.session.query(AlertRecord)
+                .filter_by(camera_id=camera_id, track_id=track_id)
+                .first()
+            )
+            if existing is not None:
+                logger.debug(
+                    "Concurrent duplicate alert resolved to existing alert %s",
+                    existing.alert_id,
+                )
+                return existing
+            raise
+
         self.session.refresh(alert)
         logger.info("Persisted alert %s (id=%d) for track %s on camera %s", alert.alert_id, alert.id, track_id, camera_id)
         return alert

@@ -6,7 +6,7 @@ Manages active WebSocket client connections, safe broadcasts, and dead-connectio
 import asyncio
 import json
 import logging
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set
 from fastapi import WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger(__name__)

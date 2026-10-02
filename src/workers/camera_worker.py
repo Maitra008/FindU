@@ -232,7 +232,8 @@ class CameraWorker(threading.Thread):
                         status="TERMINATED",
                     )
             if self.metrics.status != "ERROR":
-                self.metrics.status = "STOPPED"
+                if self.metrics.status == "RUNNING":
+                    self.metrics.status = "STOPPED"
             logger.info("[%s] CameraWorker stopped.", self.camera_id)
 
     def _process_single_frame(self, frame: np.ndarray, frame_idx: int, current_timestamp: float) -> None:

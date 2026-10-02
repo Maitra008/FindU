@@ -110,7 +110,6 @@ def handle_recognize(args: argparse.Namespace, config: RecognitionConfig) -> int
 
     threshold = args.threshold if args.threshold is not None else config.threshold
     sample_fps = args.sample_fps if args.sample_fps is not None else config.sample_fps
-    cooldown = args.cooldown if args.cooldown is not None else config.cooldown_seconds
     iou_thresh = getattr(args, "iou_threshold", config.iou_threshold)
     max_missed = getattr(args, "max_missed_frames", config.max_missed_frames)
 
@@ -119,7 +118,6 @@ def handle_recognize(args: argparse.Namespace, config: RecognitionConfig) -> int
         face_index=face_index,
         threshold=threshold,
         sample_fps=sample_fps,
-        cooldown_seconds=cooldown,
         verbose_debug=args.debug,
         iou_threshold=iou_thresh,
         max_missed_frames=max_missed,
@@ -131,7 +129,6 @@ def handle_recognize(args: argparse.Namespace, config: RecognitionConfig) -> int
                 camera_index=args.camera,
                 threshold=threshold,
                 sample_fps=sample_fps,
-                cooldown_seconds=cooldown,
                 display=True,
                 iou_threshold=iou_thresh,
                 max_missed_frames=max_missed,
@@ -141,7 +138,6 @@ def handle_recognize(args: argparse.Namespace, config: RecognitionConfig) -> int
                 video_path=args.video,
                 threshold=threshold,
                 sample_fps=sample_fps,
-                cooldown_seconds=cooldown,
                 display=getattr(args, "display", False),
                 iou_threshold=iou_thresh,
                 max_missed_frames=max_missed,
@@ -253,7 +249,6 @@ def main() -> None:
 
     parser_rec.add_argument("--threshold", type=float, default=config.threshold, help="Similarity threshold (default: 0.89)")
     parser_rec.add_argument("--sample-fps", type=float, default=config.sample_fps, help="Sampling rate in FPS (default: 2.0)")
-    parser_rec.add_argument("--cooldown", type=float, default=config.cooldown_seconds, help="Alert cooldown in seconds (default: 5.0)")
     parser_rec.add_argument("--iou-threshold", type=float, default=config.iou_threshold, help="IoU threshold for face tracking (default: 0.30)")
     parser_rec.add_argument("--max-missed-frames", type=int, default=config.max_missed_frames, help="Max missed frames before track termination (default: 5)")
     parser_rec.add_argument("--display", action="store_true", help="Display visual video feed window with bounding box overlays")
