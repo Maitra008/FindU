@@ -124,7 +124,7 @@ def init_db(engine: Optional[Engine] = None, seed_defaults: bool = True) -> None
                         name="Main Lobby",
                         location="Central Reception",
                         source="data/videos/camera_3.mp4",
-                        enabled=True,
+                        enabled=False,
                         sample_fps=2.0,
                     ),
                     Camera(
@@ -132,11 +132,11 @@ def init_db(engine: Optional[Engine] = None, seed_defaults: bool = True) -> None
                         name="South Corridor",
                         location="Ground Floor South",
                         source="data/videos/camera_4.mp4",
-                        enabled=True,
+                        enabled=False,
                         sample_fps=2.0,
                     ),
                 ]
                 session.add_all(default_cameras)
                 session.commit()
-                logger.info("Seeded %d default cameras (C1-C4) into database.", len(default_cameras))
+                logger.info("Seeded %d default cameras; C3/C4 are disabled until real sources are configured.", len(default_cameras))
 
