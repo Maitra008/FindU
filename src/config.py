@@ -28,7 +28,6 @@ EMBEDDING_DIM = 512
 # Recognition & Sampling Defaults
 DEFAULT_SIMILARITY_THRESHOLD = 0.89
 DEFAULT_SAMPLE_FPS = 2.0
-DEFAULT_COOLDOWN_SECONDS = 5.0
 
 # Tracking Defaults (Part 3)
 DEFAULT_IOU_THRESHOLD = 0.30
@@ -47,8 +46,6 @@ class RecognitionConfig:
     
     threshold: float = DEFAULT_SIMILARITY_THRESHOLD
     sample_fps: float = DEFAULT_SAMPLE_FPS
-    cooldown_seconds: float = DEFAULT_COOLDOWN_SECONDS
-    
     # Tracking parameters
     iou_threshold: float = DEFAULT_IOU_THRESHOLD
     max_missed_frames: int = DEFAULT_MAX_MISSED_FRAMES
