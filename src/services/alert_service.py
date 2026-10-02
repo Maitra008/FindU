@@ -6,6 +6,7 @@ and broadcasts verified alert events to connected WebSocket clients.
 
 import logging
 from typing import Any, Dict, List, Optional
+import asyncio
 from sqlalchemy.orm import Session
 
 from src.api.websocket import WebSocketConnectionManager, ws_manager
@@ -138,7 +139,7 @@ class AlertService:
             "alert": alert_dict,
         }
         self.ws_manager.broadcast_sync(ws_payload)
-        logger.info("Broadcasted alert %s to WebSocket clients.", effective_alert_id)
+        logger.info("Queued alert %s for WebSocket clients.", effective_alert_id)
 
         return alert
 
