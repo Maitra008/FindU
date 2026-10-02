@@ -319,7 +319,22 @@ class FaceTracker:
                 new_alerts.append(alert)
             assigned_tracks[det_idx] = track
 
-        # 2. Spawn new tracks for unmatched detections
+        # 2. Handle unmatched tracks BEFORE adding new tracks.
+        # Track indices refer to the pre-update active-track list. New tracks
+        # must never be counted as missed on their creation frame.
+        matched_track_set = set(matched_tracks)
+        surviving_tracks: List[Track] = []
+        for i, track in enumerate(self.active_tracks):
+            if i not in matched_track_set:
+                track.missed_frames += 1
+                if track.missed_frames > self.max_missed_frames:
+                    track.active = False
+                    self.terminated_tracks.append(track)
+                    logger.debug("Terminated track %s at frame %d", track.track_id, frame_idx)
+                    continue
+            surviving_tracks.append(track)
+
+        # 3. Spawn new tracks for unmatched detections.
         unmatched_det_indices = [i for i in range(len(detections)) if i not in matched_dets]
         for det_idx in unmatched_det_indices:
             det = detections[det_idx]
@@ -344,23 +359,8 @@ class FaceTracker:
                     alert_triggered=True,
                 )
                 new_alerts.append(alert)
-            self.active_tracks.append(track)
+            surviving_tracks.append(track)
             assigned_tracks[det_idx] = track
-
-        # 3. Handle unmatched active tracks (increment missed_frames, terminate if expired)
-        unmatched_track_indices = [i for i in range(len(self.active_tracks)) if i not in matched_tracks]
-        surviving_tracks = []
-        for i, track in enumerate(self.active_tracks):
-            if i in unmatched_track_indices:
-                track.missed_frames += 1
-                if track.missed_frames > self.max_missed_frames:
-                    track.active = False
-                    self.terminated_tracks.append(track)
-                    logger.debug("Terminated track %s at frame %d", track.track_id, frame_idx)
-                else:
-                    surviving_tracks.append(track)
-            else:
-                surviving_tracks.append(track)
 
         self.active_tracks = surviving_tracks
         self.max_simultaneous_tracks = max(self.max_simultaneous_tracks, len(self.active_tracks))
