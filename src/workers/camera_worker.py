@@ -232,6 +232,7 @@ class CameraWorker(threading.Thread):
                         status="TERMINATED",
                     )
             if self.metrics.status != "ERROR":
+                if self.metrics.status == "RUNNING":
                 self.metrics.status = "STOPPED"
             logger.info("[%s] CameraWorker stopped.", self.camera_id)
 
