@@ -29,3 +29,8 @@ Thumbs.db
 # Temporary/Output video caches (except test assets)
 data/*.db
 data/missing_person.db
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/

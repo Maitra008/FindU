@@ -193,7 +193,6 @@ def test_video_recognition_all_cases(face_engine, setup_test_environment):
         face_index=index,
         threshold=0.40,
         sample_fps=2.0,
-        cooldown_seconds=3.0,
         verbose_debug=True,
     )
 

@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.routes.alerts import router as alerts_router
 from src.api.routes.cameras import router as cameras_router
+from src.api.routes.demo import router as demo_router
 from src.api.routes.health import router as health_router
 from src.api.routes.workers import router as workers_router
 from src.api.websocket import ws_manager
@@ -83,6 +84,7 @@ def create_app(
     app.include_router(cameras_router)
     app.include_router(alerts_router)
     app.include_router(workers_router)
+    app.include_router(demo_router)
 
     # WebSocket Real-Time Alert Feed Endpoint
     @app.websocket("/ws/alerts")
