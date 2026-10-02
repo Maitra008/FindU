@@ -16,7 +16,6 @@ import cv2
 import numpy as np
 
 from src.config import (
-    DEFAULT_COOLDOWN_SECONDS,
     DEFAULT_IOU_THRESHOLD,
     DEFAULT_MAX_MISSED_FRAMES,
     DEFAULT_SAMPLE_FPS,
@@ -97,7 +96,6 @@ class VideoRecognizer:
         face_index: Optional[FaceIndex] = None,
         threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
         sample_fps: float = DEFAULT_SAMPLE_FPS,
-        cooldown_seconds: float = DEFAULT_COOLDOWN_SECONDS,
         iou_threshold: float = DEFAULT_IOU_THRESHOLD,
         max_missed_frames: int = DEFAULT_MAX_MISSED_FRAMES,
         track_top_k: int = DEFAULT_TRACK_TOP_K,
@@ -111,7 +109,6 @@ class VideoRecognizer:
             face_index: Populated FAISS FaceIndex instance.
             threshold: Cosine similarity cutoff for potential matches (default: 0.89).
             sample_fps: Frame sampling rate in frames per second (default: 2.0).
-            cooldown_seconds: Secondary/legacy duplicate suppression window.
             iou_threshold: Minimum IoU overlap for tracking association (default: 0.30).
             max_missed_frames: Consecutive missed frames before track termination (default: 5).
             track_top_k: Top-k scores to average for track aggregation (default: 3).
@@ -121,7 +118,6 @@ class VideoRecognizer:
         self.index = face_index or FaceIndex()
         self.threshold = threshold
         self.sample_fps = sample_fps
-        self.cooldown_seconds = cooldown_seconds
         self.iou_threshold = iou_threshold
         self.max_missed_frames = max_missed_frames
         self.track_top_k = track_top_k
@@ -295,7 +291,6 @@ class VideoRecognizer:
         video_path: Union[str, Path],
         threshold: Optional[float] = None,
         sample_fps: Optional[float] = None,
-        cooldown_seconds: Optional[float] = None,
         iou_threshold: Optional[float] = None,
         max_missed_frames: Optional[int] = None,
         display: bool = False,
@@ -307,7 +302,6 @@ class VideoRecognizer:
             video_path: Path to the video file.
             threshold: Optional override for similarity threshold (default: 0.89).
             sample_fps: Optional override for sample FPS (default: 2.0).
-            cooldown_seconds: Optional override for duplicate alert cooldown.
             iou_threshold: Optional override for tracking IoU threshold (default: 0.30).
             max_missed_frames: Optional override for track termination threshold (default: 5).
             display: Whether to render a visual display window.
@@ -321,7 +315,6 @@ class VideoRecognizer:
 
         effective_thresh = threshold if threshold is not None else self.threshold
         effective_sample_fps = sample_fps if sample_fps is not None else self.sample_fps
-        effective_cooldown = cooldown_seconds if cooldown_seconds is not None else self.cooldown_seconds
         effective_iou = iou_threshold if iou_threshold is not None else self.iou_threshold
         effective_missed = max_missed_frames if max_missed_frames is not None else self.max_missed_frames
 
@@ -440,7 +433,6 @@ class VideoRecognizer:
         print(f"Faces detected:        {faces_detected}")
         print(f"Potential matches:     {len(all_alerts)}")
         print(f"Match threshold:       {effective_thresh:.2f}")
-        print(f"Cooldown period:       {effective_cooldown:.1f}s")
         print(f"Track count:           {len(all_tracks)}")
         print(f"Tracks alerted:        {len(alerted_tracks)}")
         print(f"Max simultaneous tracks: {tracker.max_simultaneous_tracks}")
@@ -484,7 +476,6 @@ class VideoRecognizer:
         camera_index: int = 0,
         threshold: Optional[float] = None,
         sample_fps: Optional[float] = None,
-        cooldown_seconds: Optional[float] = None,
         iou_threshold: Optional[float] = None,
         max_missed_frames: Optional[int] = None,
         display: bool = True,
