@@ -1,0 +1,63 @@
+name: Backend Release Gate
+
+on:
+  push:
+    branches: [ main, backend-hardening-part4 ]
+  pull_request:
+    branches: [ main, backend-hardening-part4 ]
+
+jobs:
+  backend-gate:
+    name: Backend Release Verification Gate
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: findu_test
+          POSTGRES_USER: findu_user
+          POSTGRES_PASSWORD: findu_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install System Dependencies (OpenCV / GL)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-glx libglib2.0-0
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify Clean Imports & Entrypoints
+        run: |
+          python -c "import fastapi, pydantic, sqlalchemy, psycopg, uvicorn, insightface, onnxruntime, faiss, cv2; print('All core imports succeeded.')"
+          python -c "from src.api.app import create_app; app = create_app(init_database=False, load_workers=False); print('FastAPI app factory imports cleanly.')"
+
+      - name: Run Test Suite (pytest)
+        env:
+          DATABASE_URL: postgresql+psycopg://findu_user:findu_password@localhost:5432/findu_test
+        run: |
+          pytest -v
+
+      - name: Verify Docker Build
+        run: |
+          docker build -t findu-backend:test .
+

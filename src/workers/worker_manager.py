@@ -7,7 +7,13 @@ import logging
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
-from src.config import DEFAULT_SAMPLE_FPS, DEFAULT_SIMILARITY_THRESHOLD
+from src.config import (
+    DEFAULT_SAMPLE_FPS,
+    DEFAULT_SIMILARITY_THRESHOLD,
+    EMBEDDINGS_DIR,
+    INDEX_PATH,
+    METADATA_PATH,
+)
 from src.db.database import get_session_factory
 from src.db.models import Camera
 from src.db.repositories.cameras import CameraRepository
@@ -46,7 +52,10 @@ class WorkerManager:
     def _get_index(self) -> FaceIndex:
         if self.index is None:
             self.index = FaceIndex()
-            self.index.load()
+            if INDEX_PATH.exists() and METADATA_PATH.exists():
+                self.index.load(INDEX_PATH, METADATA_PATH)
+            elif EMBEDDINGS_DIR.exists():
+                self.index.build_from_directory(EMBEDDINGS_DIR)
         return self.index
 
     def add_camera_worker(

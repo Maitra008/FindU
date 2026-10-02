@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 from src.api.websocket import ws_manager
 from src.db.database import get_db
 from src.db.repositories.alerts import AlertRepository, TrackRepository
-from src.services.alert_service import AlertService, get_alert_service
 
 router = APIRouter(tags=["Alerts & Tracks"])
 

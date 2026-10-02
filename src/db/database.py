@@ -30,22 +30,18 @@ def get_engine(database_url: Optional[str] = None) -> Engine:
     Configures pool pre-ping and appropriate connect args based on DB dialect.
     """
     global _engine, _SessionFactory
-    if database_url is None and _engine is not None:
-        return _engine
+    target_url = database_url if database_url is not None else (str(_engine.url) if _engine is not None else os.getenv("DATABASE_URL", DEFAULT_DB_URL))
 
-    url = database_url or os.getenv("DATABASE_URL", DEFAULT_DB_URL)
-
-    # If engine already initialized for the same URL, reuse it
-    if _engine is not None and str(_engine.url) == url:
+    if _engine is not None and str(_engine.url) == target_url:
         return _engine
 
     connect_args = {}
-    if url.startswith("sqlite"):
+    if target_url.startswith("sqlite"):
         connect_args["check_same_thread"] = False
-        _engine = create_engine(url, connect_args=connect_args, echo=False)
+        _engine = create_engine(target_url, connect_args=connect_args, echo=False)
     else:
         # PostgreSQL / other dialects
-        _engine = create_engine(url, pool_pre_ping=True, pool_size=10, max_overflow=20, echo=False)
+        _engine = create_engine(target_url, pool_pre_ping=True, pool_size=10, max_overflow=20, echo=False)
 
     _SessionFactory = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
     logger.info("Initialized database engine for '%s'", _engine.url.render_as_string(hide_password=True))
@@ -123,20 +119,20 @@ def init_db(engine: Optional[Engine] = None, seed_defaults: bool = True) -> None
                         camera_id="C3",
                         name="Main Lobby",
                         location="Central Reception",
-                        source="data/videos/camera_3.mp4",
-                        enabled=True,
+                        source="",
+                        enabled=False,
                         sample_fps=2.0,
                     ),
                     Camera(
                         camera_id="C4",
                         name="South Corridor",
                         location="Ground Floor South",
-                        source="data/videos/camera_4.mp4",
-                        enabled=True,
+                        source="",
+                        enabled=False,
                         sample_fps=2.0,
                     ),
                 ]
                 session.add_all(default_cameras)
                 session.commit()
-                logger.info("Seeded %d default cameras (C1-C4) into database.", len(default_cameras))
+                logger.info("Seeded %d default cameras (C1-C4) into database (C1, C2 active; C3, C4 disabled).", len(default_cameras))
 
