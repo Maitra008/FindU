@@ -1,0 +1,48 @@
+{
+  "evaluation_protocol": "Validation Tuning -> Threshold Freeze -> Independent Test Evaluation",
+  "dataset": {
+    "enrolled_identities": 5,
+    "validation_images_total": 23,
+    "validation_images_valid": 21,
+    "validation_genuine_pairs": 20,
+    "validation_impostor_pairs": 85,
+    "test_images_total": 23,
+    "test_images_valid": 22,
+    "test_genuine_pairs": 20,
+    "test_impostor_pairs": 90
+  },
+  "threshold_selection": {
+    "rule": "highest recall on validation set subject to FPR <= 0.01",
+    "selected_threshold": 0.89,
+    "validation_auroc": 1.0,
+    "validation_recall": 1.0,
+    "validation_fpr": 0.0,
+    "validation_precision": 1.0,
+    "validation_f1": 1.0
+  },
+  "frozen_test_evaluation": {
+    "frozen_threshold": 0.89,
+    "tp": 9,
+    "fp": 0,
+    "tn": 90,
+    "fn": 11,
+    "precision": "100.0% (95% CI: 70.1%-100.0%), n=9",
+    "recall": "45.0% (95% CI: 25.8%-65.8%), n=20",
+    "false_positive_rate": "0.0% (95% CI: 0.0%-4.1%), n=90",
+    "f1_score": 0.6207,
+    "auroc": 1.0,
+    "similarity_stats": {
+      "genuine_mean": 0.8547,
+      "genuine_min": 0.6497,
+      "genuine_max": 0.9859,
+      "impostor_mean": 0.0333,
+      "impostor_min": -0.1314,
+      "impostor_max": 0.2441
+    }
+  },
+  "limitations": [
+    "Controlled evaluation dataset under synthetic condition variations.",
+    "Real CCTV surveillance footage will experience wider pose, distance, and motion degradation.",
+    "FPR uncertainty is quantified via 95% Wilson confidence intervals."
+  ]
+}

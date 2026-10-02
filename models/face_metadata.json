@@ -1,0 +1,72 @@
+[
+  {
+    "index_id": 0,
+    "person_id": "partho",
+    "name": "Partho",
+    "num_images": 5,
+    "npz_file": "C:\\Users\\hp pc\\Desktop\\opencv\\models\\embeddings\\partho_embedding.npz"
+  },
+  {
+    "index_id": 1,
+    "person_id": "person_01",
+    "name": "Person 01",
+    "num_images": 3,
+    "npz_file": "C:\\Users\\hp pc\\Desktop\\opencv\\models\\embeddings\\person_01_embedding.npz"
+  },
+  {
+    "index_id": 2,
+    "person_id": "person_02",
+    "name": "Person 02",
+    "num_images": 3,
+    "npz_file": "C:\\Users\\hp pc\\Desktop\\opencv\\models\\embeddings\\person_02_embedding.npz"
+  },
+  {
+    "index_id": 3,
+    "person_id": "person_03",
+    "name": "Person 03",
+    "num_images": 3,
+    "npz_file": "C:\\Users\\hp pc\\Desktop\\opencv\\models\\embeddings\\person_03_embedding.npz"
+  },
+  {
+    "index_id": 4,
+    "person_id": "person_04",
+    "name": "Person 04",
+    "num_images": 3,
+    "npz_file": "C:\\Users\\hp pc\\Desktop\\opencv\\models\\embeddings\\person_04_embedding.npz"
+  },
+  {
+    "index_id": 5,
+    "person_id": "person_05",
+    "name": "Person 05",
+    "num_images": 3,
+    "npz_file": "C:\\Users\\hp pc\\Desktop\\opencv\\models\\embeddings\\person_05_embedding.npz"
+  },
+  {
+    "index_id": 6,
+    "person_id": "person_w",
+    "name": "Person W",
+    "num_images": 3,
+    "npz_file": "C:\\Users\\hp pc\\Desktop\\opencv\\models\\embeddings\\person_w_embedding.npz"
+  },
+  {
+    "index_id": 7,
+    "person_id": "person_x",
+    "name": "Person X",
+    "num_images": 3,
+    "npz_file": "C:\\Users\\hp pc\\Desktop\\opencv\\models\\embeddings\\person_x_embedding.npz"
+  },
+  {
+    "index_id": 8,
+    "person_id": "person_y",
+    "name": "Person Y",
+    "num_images": 3,
+    "npz_file": "C:\\Users\\hp pc\\Desktop\\opencv\\models\\embeddings\\person_y_embedding.npz"
+  },
+  {
+    "index_id": 9,
+    "person_id": "person_z",
+    "name": "Person Z",
+    "num_images": 3,
+    "npz_file": "C:\\Users\\hp pc\\Desktop\\opencv\\models\\embeddings\\person_z_embedding.npz"
+  }
+]

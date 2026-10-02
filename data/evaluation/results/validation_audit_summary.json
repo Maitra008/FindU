@@ -1,0 +1,208 @@
+{
+  "audit_status": "COMPLETE",
+  "conclusion": "DATASET_HAS_ISSUES",
+  "threshold_action": "NOT_CHANGED",
+  "dataset_summary": {
+    "total_validation_comparisons": 150,
+    "genuine_comparisons": 20,
+    "impostor_comparisons": 130,
+    "enrolled_identities_count": 5,
+    "evaluation_identities_count": 15,
+    "valid_images_count": 30,
+    "invalid_no_face_count": 1,
+    "invalid_multi_face_count": 0
+  },
+  "high_scoring_impostors_ge_90": {
+    "count": 9,
+    "cases": [
+      {
+        "enrolled_person": "person_03",
+        "evaluation_person": "impostor_03",
+        "image_path": "data/evaluation/validation/impostor_03/val_impostor.jpg",
+        "similarity": 0.9668,
+        "classification": "WRONG_LABEL",
+        "root_cause": "Mirrored version of person_03"
+      },
+      {
+        "enrolled_person": "person_03",
+        "evaluation_person": "impostor_09",
+        "image_path": "data/evaluation/validation/impostor_09/val_impostor.jpg",
+        "similarity": 0.9668,
+        "classification": "DATA_DUPLICATE",
+        "root_cause": "Exact SHA-256 duplicate of impostor_03 (mirrored person_03)"
+      },
+      {
+        "enrolled_person": "person_02",
+        "evaluation_person": "impostor_02",
+        "image_path": "data/evaluation/validation/impostor_02/val_impostor.jpg",
+        "similarity": 0.9428,
+        "classification": "WRONG_LABEL",
+        "root_cause": "Mirrored version of person_02"
+      },
+      {
+        "enrolled_person": "person_02",
+        "evaluation_person": "impostor_08",
+        "image_path": "data/evaluation/validation/impostor_08/val_impostor.jpg",
+        "similarity": 0.9428,
+        "classification": "DATA_DUPLICATE",
+        "root_cause": "Exact SHA-256 duplicate of impostor_02 (mirrored person_02)"
+      },
+      {
+        "enrolled_person": "person_01",
+        "evaluation_person": "impostor_01",
+        "image_path": "data/evaluation/validation/impostor_01/val_impostor.jpg",
+        "similarity": 0.9414,
+        "classification": "WRONG_LABEL",
+        "root_cause": "Mirrored version of person_01"
+      },
+      {
+        "enrolled_person": "person_01",
+        "evaluation_person": "impostor_07",
+        "image_path": "data/evaluation/validation/impostor_07/val_impostor.jpg",
+        "similarity": 0.9414,
+        "classification": "DATA_DUPLICATE",
+        "root_cause": "Exact SHA-256 duplicate of impostor_01 (mirrored person_01)"
+      },
+      {
+        "enrolled_person": "person_05",
+        "evaluation_person": "impostor_05",
+        "image_path": "data/evaluation/validation/impostor_05/val_impostor.jpg",
+        "similarity": 0.9237,
+        "classification": "WRONG_LABEL",
+        "root_cause": "Mirrored version of person_05"
+      },
+      {
+        "enrolled_person": "person_04",
+        "evaluation_person": "impostor_04",
+        "image_path": "data/evaluation/validation/impostor_04/val_impostor.jpg",
+        "similarity": 0.9226,
+        "classification": "WRONG_LABEL",
+        "root_cause": "Mirrored version of person_04"
+      },
+      {
+        "enrolled_person": "person_04",
+        "evaluation_person": "impostor_10",
+        "image_path": "data/evaluation/validation/impostor_10/val_impostor.jpg",
+        "similarity": 0.9226,
+        "classification": "DATA_DUPLICATE",
+        "root_cause": "Exact SHA-256 duplicate of impostor_04 (mirrored person_04)"
+      }
+    ]
+  },
+  "high_scoring_impostors_ge_95": {
+    "count": 2,
+    "cases": [
+      "person_03 vs impostor_03 (sim: 0.9668)",
+      "person_03 vs impostor_09 (sim: 0.9668)"
+    ]
+  },
+  "low_scoring_genuine_lt_97": {
+    "count": 10,
+    "cases": [
+      {
+        "enrolled_person": "person_02",
+        "image": "val_downscaled.jpg",
+        "similarity": 0.8916,
+        "classification": "VALID_HARD_CASE"
+      },
+      {
+        "enrolled_person": "person_01",
+        "image": "val_downscaled.jpg",
+        "similarity": 0.9022,
+        "classification": "VALID_HARD_CASE"
+      },
+      {
+        "enrolled_person": "person_05",
+        "image": "val_downscaled.jpg",
+        "similarity": 0.9191,
+        "classification": "VALID_HARD_CASE"
+      },
+      {
+        "enrolled_person": "person_04",
+        "image": "val_downscaled.jpg",
+        "similarity": 0.9232,
+        "classification": "VALID_HARD_CASE"
+      },
+      {
+        "enrolled_person": "person_02",
+        "image": "val_motionblur.jpg",
+        "similarity": 0.9349,
+        "classification": "VALID_HARD_CASE"
+      },
+      {
+        "enrolled_person": "person_01",
+        "image": "val_motionblur.jpg",
+        "similarity": 0.9589,
+        "classification": "VALID_HARD_CASE"
+      },
+      {
+        "enrolled_person": "person_03",
+        "image": "val_motionblur.jpg",
+        "similarity": 0.9598,
+        "classification": "VALID_HARD_CASE"
+      },
+      {
+        "enrolled_person": "person_05",
+        "image": "val_motionblur.jpg",
+        "similarity": 0.961,
+        "classification": "VALID_HARD_CASE"
+      },
+      {
+        "enrolled_person": "person_03",
+        "image": "val_downscaled.jpg",
+        "similarity": 0.9633,
+        "classification": "VALID_HARD_CASE"
+      },
+      {
+        "enrolled_person": "person_04",
+        "image": "val_motionblur.jpg",
+        "similarity": 0.9637,
+        "classification": "VALID_HARD_CASE"
+      }
+    ]
+  },
+  "duplicate_analysis": {
+    "exact_duplicates_count": 8,
+    "exact_duplicate_pairs": [
+      [
+        "validation/impostor_01",
+        "validation/impostor_07"
+      ],
+      [
+        "validation/impostor_02",
+        "validation/impostor_08"
+      ],
+      [
+        "validation/impostor_03",
+        "validation/impostor_09"
+      ],
+      [
+        "validation/impostor_04",
+        "validation/impostor_10"
+      ],
+      [
+        "test/impostor_01",
+        "test/impostor_07"
+      ],
+      [
+        "test/impostor_02",
+        "test/impostor_08"
+      ],
+      [
+        "test/impostor_03",
+        "test/impostor_09"
+      ],
+      [
+        "test/impostor_04",
+        "test/impostor_10"
+      ]
+    ]
+  },
+  "pipeline_integrity": {
+    "embedding_pipeline": "PASS",
+    "normalization": "PASS",
+    "face_detection": "PASS",
+    "pair_generation_algorithm": "PASS"
+  },
+  "recommended_next_step": "Replace pseudo-impostor images with genuinely distinct human subjects from independent capture sources, then rerun the validation threshold sweep."
+}

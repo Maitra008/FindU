@@ -1,0 +1,62 @@
+{
+  "evaluation_dataset": "independent_test_set",
+  "frozen_threshold": 0.89,
+  "test_dataset_summary": {
+    "partition_name": "test",
+    "total_images": 23,
+    "valid_images": 22,
+    "no_face_images": 0,
+    "multiple_faces_images": 1,
+    "read_error_images": 0,
+    "identities_count": 5,
+    "genuine_pairs_count": 20,
+    "impostor_pairs_count": 90
+  },
+  "classification_counts": {
+    "tp": 9,
+    "fp": 0,
+    "tn": 90,
+    "fn": 11
+  },
+  "metrics_with_95_percent_confidence_intervals": {
+    "precision": {
+      "value": 1.0,
+      "ci_lower_95": 0.7009,
+      "ci_upper_95": 1.0,
+      "n_trials": 9
+    },
+    "recall": {
+      "value": 0.45,
+      "ci_lower_95": 0.2582,
+      "ci_upper_95": 0.6579,
+      "n_trials": 20
+    },
+    "false_positive_rate": {
+      "value": 0.0,
+      "ci_lower_95": 0.0,
+      "ci_upper_95": 0.0409,
+      "n_trials": 90
+    },
+    "f1_score": 0.6207,
+    "auroc": 1.0
+  },
+  "similarity_distributions": {
+    "genuine": {
+      "count": 20,
+      "min": 0.6497,
+      "max": 0.9859,
+      "mean": 0.8547,
+      "median": 0.8698,
+      "std": 0.1035
+    },
+    "impostor": {
+      "count": 90,
+      "min": -0.1314,
+      "max": 0.2441,
+      "mean": 0.0333,
+      "median": 0.02,
+      "std": 0.0705
+    }
+  },
+  "disclaimer": "Evaluated on independent test set using the frozen threshold selected from validation data."
+}

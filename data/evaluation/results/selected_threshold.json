@@ -1,0 +1,27 @@
+{
+  "threshold": 0.89,
+  "selection_dataset": "validation",
+  "selection_rule": "highest recall on validation set subject to FPR <= 0.01",
+  "validation_metrics": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "fpr": 0.0,
+    "f1_score": 1.0,
+    "tp": 20,
+    "fp": 0,
+    "tn": 85,
+    "fn": 0
+  },
+  "validation_dataset_summary": {
+    "partition_name": "validation",
+    "total_images": 23,
+    "valid_images": 21,
+    "no_face_images": 2,
+    "multiple_faces_images": 0,
+    "read_error_images": 0,
+    "identities_count": 5,
+    "genuine_pairs_count": 20,
+    "impostor_pairs_count": 85
+  },
+  "disclaimer": "Threshold selected on validation set and frozen before test evaluation."
+}

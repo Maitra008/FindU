@@ -1,0 +1,31 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Pytest / Test Artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+*.sqlite
+*.db
+
+# Virtual Environments
+venv/
+env/
+ENV/
+.venv/
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# IDE Files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary/Output video caches (except test assets)
+data/*.db
+data/missing_person.db
