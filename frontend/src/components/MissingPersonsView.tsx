@@ -29,6 +29,7 @@ interface MissingPersonsViewProps {
   currentRole: string | null
   onOpenRegisterModal: () => void
   onSelectAlertForOperation?: (alert: AlertRecord) => void
+  refreshKey?: number
 }
 
 const STATUS_BADGES: Record<PersonCaseStatus, string> = {
@@ -41,6 +42,7 @@ export const MissingPersonsView: React.FC<MissingPersonsViewProps> = ({
   currentRole,
   onOpenRegisterModal,
   onSelectAlertForOperation,
+  refreshKey,
 }) => {
   const [persons, setPersons] = useState<PersonRecord[]>([])
   const [selectedPerson, setSelectedPerson] = useState<PersonRecord | null>(null)
@@ -70,7 +72,7 @@ export const MissingPersonsView: React.FC<MissingPersonsViewProps> = ({
 
   useEffect(() => {
     loadPersons()
-  }, [statusFilter])
+  }, [statusFilter, refreshKey])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
