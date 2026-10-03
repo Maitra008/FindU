@@ -93,31 +93,48 @@ def _migrate_sqlite_columns(engine: Engine) -> None:
         with engine.connect() as conn:
             # Check if persons table exists
             table_check = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='persons'")).fetchone()
-            if not table_check:
-                return
+            if table_check:
+                # Fetch existing columns
+                cols = {row[1] for row in conn.execute(text("PRAGMA table_info(persons)")).fetchall()}
+                expected_cols = {
+                    "case_id": "VARCHAR(64)",
+                    "age": "INTEGER",
+                    "gender": "VARCHAR(32)",
+                    "date_last_seen": "DATETIME",
+                    "last_known_location": "VARCHAR(256)",
+                    "notes": "TEXT",
+                    "status": "VARCHAR(32) DEFAULT 'ACTIVE'",
+                    "photo_paths": "TEXT DEFAULT '[]'",
+                    "embedding_path": "VARCHAR(512)",
+                    "is_active": "BOOLEAN DEFAULT 1",
+                    "updated_at": "DATETIME",
+                }
+                for col, col_type in expected_cols.items():
+                    if col not in cols:
+                        logger.info("Migrating SQLite schema: adding column %s to persons table", col)
+                        conn.execute(text(f"ALTER TABLE persons ADD COLUMN {col} {col_type}"))
 
-            # Fetch existing columns
-            cols = {row[1] for row in conn.execute(text("PRAGMA table_info(persons)")).fetchall()}
-            
-            # Map of column name to SQL definition
-            expected_cols = {
-                "case_id": "VARCHAR(64)",
-                "age": "INTEGER",
-                "gender": "VARCHAR(32)",
-                "date_last_seen": "DATETIME",
-                "last_known_location": "VARCHAR(256)",
-                "notes": "TEXT",
-                "status": "VARCHAR(32) DEFAULT 'ACTIVE'",
-                "photo_paths": "TEXT DEFAULT '[]'",
-                "embedding_path": "VARCHAR(512)",
-                "is_active": "BOOLEAN DEFAULT 1",
-                "updated_at": "DATETIME",
-            }
+            # Check if cameras table exists
+            cam_check = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='cameras'")).fetchone()
+            if cam_check:
+                cam_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(cameras)")).fetchall()}
+                expected_cam_cols = {
+                    "source_type": "VARCHAR(32) DEFAULT 'file'",
+                    "status": "VARCHAR(32) DEFAULT 'OFFLINE'",
+                    "stream_fps": "FLOAT DEFAULT 30.0",
+                    "ai_fps": "FLOAT DEFAULT 2.0",
+                    "latency_ms": "FLOAT DEFAULT 0.0",
+                    "reconnect_count": "INTEGER DEFAULT 0",
+                    "last_connected_at": "DATETIME",
+                    "last_frame_at": "DATETIME",
+                    "error_message": "TEXT",
+                    "updated_at": "DATETIME",
+                }
+                for col, col_type in expected_cam_cols.items():
+                    if col not in cam_cols:
+                        logger.info("Migrating SQLite schema: adding column %s to cameras table", col)
+                        conn.execute(text(f"ALTER TABLE cameras ADD COLUMN {col} {col_type}"))
 
-            for col, col_type in expected_cols.items():
-                if col not in cols:
-                    logger.info("Migrating SQLite schema: adding column %s to persons table", col)
-                    conn.execute(text(f"ALTER TABLE persons ADD COLUMN {col} {col_type}"))
             conn.commit()
     except Exception as e:
         logger.warning("SQLite column migration notice: %s", e)
@@ -184,11 +201,14 @@ def init_db(engine: Optional[Engine] = None, seed_defaults: bool = True) -> None
             user_repo = UserRepository(session)
             user_repo.ensure_user_exists("admin", hash_password(admin_password), "ADMIN")
             user_repo.ensure_user_exists("demo_admin", hash_password(admin_password), "ADMIN")
+            user_repo.ensure_user_exists("police", hash_password(police_password), "POLICE")
             user_repo.ensure_user_exists("officer01", hash_password(police_password), "POLICE")
             user_repo.ensure_user_exists("demo_police", hash_password(police_password), "POLICE")
+            user_repo.ensure_user_exists("hospital", hash_password(hospital_password), "HOSPITAL")
             user_repo.ensure_user_exists("hospital01", hash_password(hospital_password), "HOSPITAL")
             user_repo.ensure_user_exists("demo_hospital", hash_password(hospital_password), "HOSPITAL")
+            user_repo.ensure_user_exists("ngo", hash_password(ngo_password), "NGO")
             user_repo.ensure_user_exists("ngo01", hash_password(ngo_password), "NGO")
             user_repo.ensure_user_exists("demo_ngo", hash_password(ngo_password), "NGO")
-            logger.info("Seeded/verified demo users (demo_admin, demo_police, demo_hospital, demo_ngo, admin, officer01, hospital01, ngo01).")
+            logger.info("Seeded/verified demo users (admin, police, hospital, ngo, demo accounts).")
 

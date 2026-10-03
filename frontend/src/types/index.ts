@@ -10,15 +10,66 @@ export type WorkerStatus = 'STOPPED' | 'STARTING' | 'RUNNING' | 'COMPLETED' | 'E
 
 export type PersonCaseStatus = 'ACTIVE' | 'FOUND' | 'CLOSED'
 
+export type CameraSourceType = 'file' | 'usb' | 'rtsp'
+
+export type CameraStatus = 'ONLINE' | 'CONNECTING' | 'RECONNECTING' | 'OFFLINE' | 'PROCESSING' | 'ERROR'
+
+export type HistoricalJobStatus = 'QUEUED' | 'PROCESSING' | 'PAUSED' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
+
 export interface Camera {
   id: number
   camera_id: string
   name: string
   location: string | null
+  source_type: CameraSourceType
   source: string
   enabled: boolean
   sample_fps: number
+  status?: CameraStatus | string
+  stream_fps?: number
+  ai_fps?: number
+  latency_ms?: number
+  reconnect_count?: number
+  frames_processed?: number
+  alerts_emitted?: number
+  tracks_created?: number
+  error_message?: string | null
+  last_connected_at?: string | null
+  last_frame_at?: string | null
   created_at: string | null
+  updated_at?: string | null
+}
+
+export interface CameraTestResult {
+  success: boolean
+  latency_ms: number
+  fps?: number
+  width?: number
+  height?: number
+  error?: string | null
+  masked_source?: string
+}
+
+export interface HistoricalJobRecord {
+  id: number
+  job_id: string
+  camera_id: string
+  file_path: string
+  sample_fps: number
+  status: HistoricalJobStatus
+  total_duration_sec: number
+  processed_duration_sec: number
+  progress_percent: number
+  frames_sampled: number
+  faces_detected: number
+  tracks_created: number
+  potential_matches: number
+  verified_matches: number
+  error_message: string | null
+  started_at: string | null
+  completed_at: string | null
+  created_at: string | null
+  updated_at: string | null
 }
 
 export interface PersonRecord {
@@ -98,9 +149,10 @@ export interface WorkerMetrics {
 }
 
 export interface WebSocketAlertMessage {
-  event: 'alert.created' | 'alert.updated' | 'person.registered' | 'person.updated' | 'pong'
+  event: 'alert.created' | 'alert.updated' | 'person.registered' | 'person.updated' | 'job.progress' | 'job.completed' | 'pong'
   alert?: AlertRecord
   person?: PersonRecord
+  job?: HistoricalJobRecord
   data?: Record<string, unknown>
 }
 
@@ -115,4 +167,3 @@ export interface CameraLocation {
   lng: number
   zone: string
 }
-

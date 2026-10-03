@@ -82,10 +82,20 @@ class Camera(Base):
     camera_id = Column(String(32), unique=True, nullable=False, index=True)
     name = Column(String(128), nullable=False)
     location = Column(String(256), nullable=True)
+    source_type = Column(String(32), default="file", nullable=False)  # file, usb, rtsp
     source = Column(String(512), nullable=False)  # file path, camera index (e.g. '0'), or rtsp uri
     enabled = Column(Boolean, default=True, nullable=False)
     sample_fps = Column(Float, default=2.0, nullable=False)
+    status = Column(String(32), default="OFFLINE", nullable=False)  # ONLINE, CONNECTING, RECONNECTING, OFFLINE, PROCESSING, ERROR
+    stream_fps = Column(Float, default=30.0, nullable=True)
+    ai_fps = Column(Float, default=2.0, nullable=True)
+    latency_ms = Column(Float, default=0.0, nullable=True)
+    reconnect_count = Column(Integer, default=0, nullable=False)
+    last_connected_at = Column(DateTime, nullable=True)
+    last_frame_at = Column(DateTime, nullable=True)
+    error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=get_utc_now, nullable=False)
+    updated_at = Column(DateTime, default=get_utc_now, onupdate=get_utc_now, nullable=False)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -93,10 +103,66 @@ class Camera(Base):
             "camera_id": self.camera_id,
             "name": self.name,
             "location": self.location,
+            "source_type": self.source_type or "file",
             "source": self.source,
             "enabled": self.enabled,
             "sample_fps": self.sample_fps,
+            "status": self.status or ("ONLINE" if self.enabled else "OFFLINE"),
+            "stream_fps": self.stream_fps or 30.0,
+            "ai_fps": self.ai_fps or self.sample_fps,
+            "latency_ms": self.latency_ms or 0.0,
+            "reconnect_count": self.reconnect_count or 0,
+            "last_connected_at": self.last_connected_at.isoformat() if self.last_connected_at else None,
+            "last_frame_at": self.last_frame_at.isoformat() if self.last_frame_at else None,
+            "error_message": self.error_message,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class HistoricalJob(Base):
+    """Background asynchronous processing job for long/historical video files."""
+    __tablename__ = "historical_jobs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    job_id = Column(String(64), unique=True, nullable=False, index=True)
+    camera_id = Column(String(32), nullable=False, index=True)
+    file_path = Column(String(512), nullable=False)
+    sample_fps = Column(Float, default=2.0, nullable=False)
+    status = Column(String(32), default="QUEUED", nullable=False)  # QUEUED, PROCESSING, PAUSED, COMPLETED, FAILED, CANCELLED
+    total_duration_sec = Column(Float, default=0.0, nullable=False)
+    processed_duration_sec = Column(Float, default=0.0, nullable=False)
+    progress_percent = Column(Float, default=0.0, nullable=False)
+    frames_sampled = Column(Integer, default=0, nullable=False)
+    faces_detected = Column(Integer, default=0, nullable=False)
+    tracks_created = Column(Integer, default=0, nullable=False)
+    potential_matches = Column(Integer, default=0, nullable=False)
+    verified_matches = Column(Integer, default=0, nullable=False)
+    processing_speed_fps = Column(Float, default=0.0, nullable=False)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=get_utc_now, nullable=False)
+    completed_at = Column(DateTime, nullable=True)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "job_id": self.job_id,
+            "camera_id": self.camera_id,
+            "file_path": self.file_path,
+            "sample_fps": self.sample_fps,
+            "status": self.status,
+            "total_duration_sec": round(self.total_duration_sec, 2),
+            "processed_duration_sec": round(self.processed_duration_sec, 2),
+            "progress_percent": round(self.progress_percent, 1),
+            "frames_sampled": self.frames_sampled,
+            "faces_detected": self.faces_detected,
+            "tracks_created": self.tracks_created,
+            "potential_matches": self.potential_matches,
+            "verified_matches": self.verified_matches,
+            "processing_speed_fps": round(self.processing_speed_fps, 1),
+            "error_message": self.error_message,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
 
 

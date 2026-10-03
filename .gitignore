@@ -31,6 +31,8 @@ data/*.db
 data/missing_person.db
 data/reference_photos/
 data/snapshots/
+data/historical_uploads/
+scratch/
 
 # Frontend
 frontend/node_modules/

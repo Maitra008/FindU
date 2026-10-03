@@ -35,7 +35,6 @@ export const App: React.FC = () => {
   const [currentRole, setCurrentRole] = useState<string | null>(() => getStoredUserInfo()?.role || null)
   const [activeTab, setActiveTab] = useState<NavigationTab>('live-operations')
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState<boolean>(false)
-  const [personsRefreshKey, setPersonsRefreshKey] = useState<number>(0)
   const [backendConnected, setBackendConnected] = useState<boolean>(false)
   const [wsConnected, setWsConnected] = useState<boolean>(false)
   const [alerts, setAlerts] = useState<AlertRecord[]>([])
@@ -161,8 +160,6 @@ export const App: React.FC = () => {
                 ? updatedAlert
                 : current
             )
-          } else if (msg.event === 'person.registered' || msg.event === 'person.updated') {
-            setPersonsRefreshKey((k) => k + 1)
           }
         } catch (err) {
           console.error('Failed to parse WebSocket message:', err)
@@ -356,7 +353,6 @@ export const App: React.FC = () => {
         <div className="flex-1 overflow-hidden">
           <MissingPersonsView
             currentRole={currentRole}
-            refreshKey={personsRefreshKey}
             onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
             onSelectAlertForOperation={(alert) => {
               setSelectedAlert(alert)
@@ -371,7 +367,6 @@ export const App: React.FC = () => {
         isOpen={isRegisterModalOpen}
         onClose={() => setIsRegisterModalOpen(false)}
         onRegistered={() => {
-          setPersonsRefreshKey((k) => k + 1)
           loadInitialData()
         }}
       />

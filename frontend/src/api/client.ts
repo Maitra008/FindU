@@ -274,3 +274,157 @@ export async function updatePerson(
   return res.json()
 }
 
+// ---------------------------------------------------------------------------
+// Camera Command Center & Historical Footage API
+// ---------------------------------------------------------------------------
+
+export async function createCamera(data: {
+  camera_id: string
+  name: string
+  source: string
+  source_type: string
+  location?: string
+  enabled?: boolean
+  sample_fps?: number
+  transport?: string
+}): Promise<Camera> {
+  const res = await fetch(`${API_BASE_URL}/api/cameras`, {
+    method: 'POST',
+    headers: getAuthHeaders(true),
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Failed to create camera: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function updateCamera(
+  cameraId: string,
+  updates: Partial<Camera>
+): Promise<Camera> {
+  const res = await fetch(`${API_BASE_URL}/api/cameras/${encodeURIComponent(cameraId)}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(true),
+    body: JSON.stringify(updates),
+  })
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Failed to update camera: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function deleteCamera(cameraId: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/cameras/${encodeURIComponent(cameraId)}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(true),
+  })
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Failed to delete camera: ${res.statusText}`)
+  }
+}
+
+export async function testCameraSource(data: {
+  source: string
+  source_type?: string
+  transport?: string
+}): Promise<import('../types').CameraTestResult> {
+  const res = await fetch(`${API_BASE_URL}/api/cameras/test-source`, {
+    method: 'POST',
+    headers: getAuthHeaders(true),
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Connection test failed: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function testExistingCamera(
+  cameraId: string
+): Promise<import('../types').CameraTestResult> {
+  const res = await fetch(`${API_BASE_URL}/api/cameras/${encodeURIComponent(cameraId)}/test`, {
+    method: 'POST',
+    headers: getAuthHeaders(true),
+  })
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Test failed: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function uploadHistoricalFootage(
+  formData: FormData
+): Promise<{ mode: string; job?: import('../types').HistoricalJobRecord; camera?: Camera; message: string }> {
+  const res = await fetch(`${API_BASE_URL}/api/historical/upload`, {
+    method: 'POST',
+    headers: getAuthHeaders(false),
+    body: formData,
+  })
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Historical upload failed: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function fetchHistoricalJobs(): Promise<import('../types').HistoricalJobRecord[]> {
+  const res = await fetch(`${API_BASE_URL}/api/historical/jobs`, {
+    headers: getAuthHeaders(true),
+  })
+  if (!res.ok) {
+    throw new Error(`Failed to fetch historical jobs: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function fetchHistoricalJob(jobId: string): Promise<import('../types').HistoricalJobRecord> {
+  const res = await fetch(`${API_BASE_URL}/api/historical/jobs/${encodeURIComponent(jobId)}`, {
+    headers: getAuthHeaders(true),
+  })
+  if (!res.ok) {
+    throw new Error(`Failed to fetch job ${jobId}: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function cancelHistoricalJob(jobId: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/historical/jobs/${encodeURIComponent(jobId)}/cancel`, {
+    method: 'POST',
+    headers: getAuthHeaders(true),
+  })
+  if (!res.ok) {
+    throw new Error(`Failed to cancel job ${jobId}: ${res.statusText}`)
+  }
+}
+
+export async function pauseWorker(cameraId: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/workers/${encodeURIComponent(cameraId)}/pause`, {
+    method: 'POST',
+    headers: getAuthHeaders(true),
+  })
+  if (!res.ok) throw new Error(`Failed to pause worker ${cameraId}`)
+}
+
+export async function resumeWorker(cameraId: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/workers/${encodeURIComponent(cameraId)}/resume`, {
+    method: 'POST',
+    headers: getAuthHeaders(true),
+  })
+  if (!res.ok) throw new Error(`Failed to resume worker ${cameraId}`)
+}
+
+export async function setWorkerSpeed(cameraId: string, speed: number): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/workers/${encodeURIComponent(cameraId)}/speed?speed=${speed}`, {
+    method: 'POST',
+    headers: getAuthHeaders(true),
+  })
+  if (!res.ok) throw new Error(`Failed to set worker speed for ${cameraId}`)
+}
+
+

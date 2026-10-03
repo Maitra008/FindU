@@ -92,6 +92,7 @@ class WorkerManager:
         self,
         camera_id: str,
         source: str,
+        source_type: str = "file",
         name: Optional[str] = None,
         sample_fps: float = DEFAULT_SAMPLE_FPS,
         threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
@@ -185,6 +186,10 @@ class WorkerManager:
     def get_statuses(self) -> List[Dict[str, Any]]:
         """Return real-time telemetry metrics for all managed workers."""
         return [w.metrics.to_dict() for w in self.workers.values()]
+
+    def get_all_statuses(self) -> List[Dict[str, Any]]:
+        """Alias for get_statuses."""
+        return self.get_statuses()
 
     def get_worker_status(self, camera_id: str) -> Optional[Dict[str, Any]]:
         """Return metrics for specific camera worker."""

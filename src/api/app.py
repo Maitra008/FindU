@@ -20,6 +20,7 @@ from src.api.routes.auth import router as auth_router
 from src.api.routes.cameras import router as cameras_router
 from src.api.routes.demo import router as demo_router
 from src.api.routes.health import router as health_router
+from src.api.routes.historical import router as historical_router
 from src.api.routes.media import router as media_router
 from src.api.routes.persons import router as persons_router
 from src.api.routes.workers import router as workers_router
@@ -101,6 +102,7 @@ def create_app(
     app.include_router(demo_router)
     app.include_router(audit_router)
     app.include_router(persons_router)
+    app.include_router(historical_router)
 
     # WebSocket Real-Time Alert Feed — JWT authenticated via ?token= query param
     @app.websocket("/ws/alerts")
