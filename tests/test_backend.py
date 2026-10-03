@@ -20,6 +20,7 @@ from sqlalchemy.orm import sessionmaker
 
 from src.api.app import create_app
 from src.api.websocket import WebSocketConnectionManager, ws_manager
+from src.auth.security import create_access_token
 from src.db.database import check_db_connection, init_db
 from src.db.models import AlertRecord, Base, Camera, Person, TrackRecord
 from src.db.repositories.alerts import AlertRepository, TrackRepository
@@ -271,11 +272,14 @@ def test_cameras_rest_api(tmp_path):
     db_file = tmp_path / "test_cameras_api.db"
     db_url = f"sqlite:///{db_file}"
     app = create_app(database_url=db_url, init_database=True, load_workers=False)
+    admin_token = create_access_token(username="admin", role="ADMIN")
+    headers = {"Authorization": f"Bearer {admin_token}"}
 
     with TestClient(app) as client:
         # Create Camera
         post_res = client.post(
             "/api/cameras",
+            headers=headers,
             json={
                 "camera_id": "C10",
                 "name": "West Gate",
@@ -291,13 +295,13 @@ def test_cameras_rest_api(tmp_path):
         assert data["name"] == "West Gate"
 
         # List Cameras
-        get_res = client.get("/api/cameras")
+        get_res = client.get("/api/cameras", headers=headers)
         assert get_res.status_code == 200
         cams = get_res.json()
         assert any(c["camera_id"] == "C10" for c in cams)
 
         # Get Single Camera
-        single_res = client.get("/api/cameras/C10")
+        single_res = client.get("/api/cameras/C10", headers=headers)
         assert single_res.status_code == 200
         assert single_res.json()["camera_id"] == "C10"
 
@@ -307,6 +311,8 @@ def test_alerts_rest_api_and_status_update(tmp_path):
     db_file = tmp_path / "test_alerts_api.db"
     db_url = f"sqlite:///{db_file}"
     app = create_app(database_url=db_url, init_database=True, load_workers=False)
+    admin_token = create_access_token(username="admin", role="ADMIN")
+    headers = {"Authorization": f"Bearer {admin_token}"}
 
     # Ingest test alert directly via AlertService
     engine = create_engine(db_url, connect_args={"check_same_thread": False})
@@ -325,7 +331,7 @@ def test_alerts_rest_api_and_status_update(tmp_path):
 
     with TestClient(app) as client:
         # List alerts
-        list_res = client.get("/api/alerts?camera_id=C1")
+        list_res = client.get("/api/alerts?camera_id=C1", headers=headers)
         assert list_res.status_code == 200
         alerts = list_res.json()
         assert len(alerts) >= 1
@@ -335,13 +341,14 @@ def test_alerts_rest_api_and_status_update(tmp_path):
         # Update status to VERIFIED
         patch_res = client.patch(
             f"/api/alerts/{alert.id}",
+            headers=headers,
             json={"status": "VERIFIED"},
         )
         assert patch_res.status_code == 200
         assert patch_res.json()["status"] == "VERIFIED"
 
         # Verify updated status on GET
-        get_res = client.get(f"/api/alerts/{alert.id}")
+        get_res = client.get(f"/api/alerts/{alert.id}", headers=headers)
         assert get_res.status_code == 200
         assert get_res.json()["status"] == "VERIFIED"
 
@@ -351,9 +358,10 @@ def test_websocket_client_receives_live_alert(tmp_path):
     db_file = tmp_path / "test_ws.db"
     db_url = f"sqlite:///{db_file}"
     app = create_app(database_url=db_url, init_database=True, load_workers=False)
+    admin_token = create_access_token(username="admin", role="ADMIN")
 
     with TestClient(app) as client:
-        with client.websocket_connect("/ws/alerts") as ws:
+        with client.websocket_connect(f"/ws/alerts?token={admin_token}") as ws:
             # Client sends a heartbeat ping
             ws.send_text("ping")
             pong = ws.receive_json()

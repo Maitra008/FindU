@@ -34,3 +34,9 @@ data/missing_person.db
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
+
+# Environment secrets — never commit .env to version control
+.env
+
+# Scratch directory
+scratch/

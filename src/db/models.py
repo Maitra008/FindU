@@ -173,3 +173,60 @@ class AlertRecord(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
+
+class User(Base):
+    """
+    Operator user account for FindU portal authentication.
+
+    Roles:
+        ADMIN    — full access including audit log and user management
+        POLICE   — can view alerts and cameras, confirm/dismiss
+        HOSPITAL — read-only access to alerts
+        NGO      — read-only access to alerts
+    """
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(64), unique=True, nullable=False, index=True)
+    password_hash = Column(String(256), nullable=False)
+    role = Column(String(32), nullable=False, default="POLICE")  # ADMIN, POLICE, HOSPITAL, NGO
+    enabled = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=get_utc_now, nullable=False)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Return safe serialization — NEVER includes password_hash."""
+        return {
+            "id": self.id,
+            "username": self.username,
+            "role": self.role,
+            "enabled": self.enabled,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class AuditLog(Base):
+    """
+    Immutable audit trail for security-relevant operator actions.
+
+    NOTE: NEVER store passwords, raw tokens, face embeddings, or raw video frames here.
+    """
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    event = Column(String(64), nullable=False, index=True)          # e.g. "alert.verified", "login.success"
+    actor_username = Column(String(64), nullable=True, index=True)  # None for system events
+    resource_type = Column(String(32), nullable=True)               # e.g. "alert", "camera", "user"
+    resource_id = Column(String(128), nullable=True)                # e.g. alert_id, camera_id
+    detail = Column(Text, nullable=True)                            # JSON-safe extra context (no secrets)
+    created_at = Column(DateTime, default=get_utc_now, nullable=False)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "event": self.event,
+            "actor_username": self.actor_username,
+            "resource_type": self.resource_type,
+            "resource_id": self.resource_id,
+            "detail": self.detail,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }

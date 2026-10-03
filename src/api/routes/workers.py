@@ -1,18 +1,23 @@
 """
 Worker control and telemetry REST API routes.
+Part 6: JWT authentication + role-based access control.
 """
 
 from typing import Any, Dict, List
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from src.auth.dependencies import get_current_user, require_role
 from src.workers.worker_manager import WorkerManager, get_worker_manager
 
 router = APIRouter(prefix="/api/workers", tags=["Workers"])
 
 
 @router.get("/status", response_model=List[Dict[str, Any]])
-def get_worker_statuses(worker_mgr: WorkerManager = Depends(get_worker_manager)):
-    """Get real-time operational telemetry for all camera workers."""
+def get_worker_statuses(
+    worker_mgr: WorkerManager = Depends(get_worker_manager),
+    current_user=Depends(get_current_user),
+):
+    """Get real-time operational telemetry for all camera workers. Requires authentication."""
     return worker_mgr.get_statuses()
 
 
@@ -20,8 +25,9 @@ def get_worker_statuses(worker_mgr: WorkerManager = Depends(get_worker_manager))
 def get_single_worker_status(
     camera_id: str,
     worker_mgr: WorkerManager = Depends(get_worker_manager),
+    current_user=Depends(get_current_user),
 ):
-    """Get telemetry for a specific camera worker (e.g. C1)."""
+    """Get telemetry for a specific camera worker (e.g. C1). Requires authentication."""
     st = worker_mgr.get_worker_status(camera_id)
     if not st:
         raise HTTPException(
@@ -32,21 +38,31 @@ def get_single_worker_status(
 
 
 @router.post("/start-all", response_model=Dict[str, bool])
-def start_all_workers(worker_mgr: WorkerManager = Depends(get_worker_manager)):
-    """Start all configured camera worker threads."""
+def start_all_workers(
+    worker_mgr: WorkerManager = Depends(get_worker_manager),
+    current_user=require_role("ADMIN", "POLICE"),
+):
+    """Start all configured camera worker threads. Requires ADMIN or POLICE role."""
     return worker_mgr.start_all()
 
 
 @router.post("/stop-all", response_model=Dict[str, str])
-def stop_all_workers(worker_mgr: WorkerManager = Depends(get_worker_manager)):
-    """Stop all running camera worker threads."""
+def stop_all_workers(
+    worker_mgr: WorkerManager = Depends(get_worker_manager),
+    current_user=require_role("ADMIN"),
+):
+    """Stop all running camera worker threads. Requires ADMIN role."""
     worker_mgr.stop_all()
     return {"message": "All camera workers stopped"}
 
 
 @router.post("/{camera_id}/start", response_model=Dict[str, str])
-def start_worker(camera_id: str, worker_mgr: WorkerManager = Depends(get_worker_manager)):
-    """Start specific camera worker thread."""
+def start_worker(
+    camera_id: str,
+    worker_mgr: WorkerManager = Depends(get_worker_manager),
+    current_user=require_role("ADMIN", "POLICE"),
+):
+    """Start specific camera worker thread. Requires ADMIN or POLICE role."""
     success = worker_mgr.start_worker(camera_id)
     if not success:
         raise HTTPException(
@@ -57,8 +73,12 @@ def start_worker(camera_id: str, worker_mgr: WorkerManager = Depends(get_worker_
 
 
 @router.post("/{camera_id}/stop", response_model=Dict[str, str])
-def stop_worker(camera_id: str, worker_mgr: WorkerManager = Depends(get_worker_manager)):
-    """Stop specific camera worker thread."""
+def stop_worker(
+    camera_id: str,
+    worker_mgr: WorkerManager = Depends(get_worker_manager),
+    current_user=require_role("ADMIN"),
+):
+    """Stop specific camera worker thread. Requires ADMIN role."""
     success = worker_mgr.stop_worker(camera_id)
     if not success:
         raise HTTPException(

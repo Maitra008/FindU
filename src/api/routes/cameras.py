@@ -1,5 +1,6 @@
 """
 Camera management REST API routes.
+Part 6: JWT authentication + role-based access control.
 """
 
 from typing import Any, Dict, List, Optional
@@ -7,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from src.auth.dependencies import get_current_user, require_role
 from src.db.database import get_db
 from src.db.repositories.cameras import CameraRepository
 
@@ -31,16 +33,24 @@ class CameraUpdateSchema(BaseModel):
 
 
 @router.get("", response_model=List[Dict[str, Any]])
-def list_cameras(enabled_only: bool = False, db: Session = Depends(get_db)):
-    """List all registered cameras."""
+def list_cameras(
+    enabled_only: bool = False,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """List all registered cameras. Requires authentication."""
     repo = CameraRepository(db)
     cams = repo.get_all(enabled_only=enabled_only)
     return [c.to_dict() for c in cams]
 
 
 @router.get("/{camera_id}", response_model=Dict[str, Any])
-def get_camera(camera_id: str, db: Session = Depends(get_db)):
-    """Get single camera configuration by camera_id (e.g. 'C1')."""
+def get_camera(
+    camera_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Get single camera configuration by camera_id (e.g. 'C1'). Requires authentication."""
     repo = CameraRepository(db)
     cam = repo.get_by_camera_id(camera_id)
     if not cam:
@@ -49,8 +59,12 @@ def get_camera(camera_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
-def create_or_update_camera(payload: CameraCreateSchema, db: Session = Depends(get_db)):
-    """Create or update camera configuration."""
+def create_or_update_camera(
+    payload: CameraCreateSchema,
+    db: Session = Depends(get_db),
+    current_user=require_role("ADMIN"),
+):
+    """Create or update camera configuration. ADMIN role required."""
     repo = CameraRepository(db)
     cam = repo.create_or_update(
         camera_id=payload.camera_id,

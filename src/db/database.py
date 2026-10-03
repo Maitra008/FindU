@@ -12,8 +12,10 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from src.auth.security import hash_password
 from src.config import PROJECT_ROOT
-from src.db.models import Base, Camera, Person
+from src.db.models import AlertRecord, AuditLog, Base, Camera, Person, TrackRecord, User
+from src.db.repositories.users import UserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +89,7 @@ def check_db_connection(engine: Optional[Engine] = None) -> bool:
 
 def init_db(engine: Optional[Engine] = None, seed_defaults: bool = True) -> None:
     """
-    Create all database tables and seed default camera / person records if empty.
+    Create all database tables and seed default camera / person / user records if empty.
     """
     eng = engine or get_engine()
     Base.metadata.create_all(bind=eng)
@@ -135,4 +137,21 @@ def init_db(engine: Optional[Engine] = None, seed_defaults: bool = True) -> None
                 session.add_all(default_cameras)
                 session.commit()
                 logger.info("Seeded %d default cameras (C1-C4); C3/C4 are disabled until real sources are configured.", len(default_cameras))
+
+            # Seed demo operator accounts
+            admin_password = os.getenv("ADMIN_PASSWORD", "admin-demo-CHANGE-ME")
+            police_password = os.getenv("POLICE_PASSWORD", "police-demo-CHANGE-ME")
+            hospital_password = os.getenv("HOSPITAL_PASSWORD", "hospital-demo-CHANGE-ME")
+            ngo_password = os.getenv("NGO_PASSWORD", "ngo-demo-CHANGE-ME")
+
+            user_repo = UserRepository(session)
+            user_repo.ensure_user_exists("admin", hash_password(admin_password), "ADMIN")
+            user_repo.ensure_user_exists("demo_admin", hash_password(admin_password), "ADMIN")
+            user_repo.ensure_user_exists("officer01", hash_password(police_password), "POLICE")
+            user_repo.ensure_user_exists("demo_police", hash_password(police_password), "POLICE")
+            user_repo.ensure_user_exists("hospital01", hash_password(hospital_password), "HOSPITAL")
+            user_repo.ensure_user_exists("demo_hospital", hash_password(hospital_password), "HOSPITAL")
+            user_repo.ensure_user_exists("ngo01", hash_password(ngo_password), "NGO")
+            user_repo.ensure_user_exists("demo_ngo", hash_password(ngo_password), "NGO")
+            logger.info("Seeded/verified demo users (demo_admin, demo_police, demo_hospital, demo_ngo, admin, officer01, hospital01, ngo01).")
 

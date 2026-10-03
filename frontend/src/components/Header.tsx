@@ -1,5 +1,5 @@
 import React from 'react'
-import { Camera as CameraIcon, Play, RefreshCw, Wifi, WifiOff } from 'lucide-react'
+import { Camera as CameraIcon, LogOut, Play, RefreshCw, Wifi, WifiOff } from 'lucide-react'
 import type { WorkerMetrics } from '../types'
 
 interface HeaderProps {
@@ -9,6 +9,16 @@ interface HeaderProps {
   onRefresh: () => void
   onSeedDemo: () => void
   isSeeding: boolean
+  currentUsername: string | null
+  currentRole: string | null
+  onLogout: () => void
+}
+
+const ROLE_COLORS: Record<string, string> = {
+  ADMIN: 'bg-red-950 text-red-300 border-red-800/60',
+  POLICE: 'bg-blue-950 text-blue-300 border-blue-800/60',
+  HOSPITAL: 'bg-emerald-950 text-emerald-300 border-emerald-800/60',
+  NGO: 'bg-purple-950 text-purple-300 border-purple-800/60',
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,8 +28,12 @@ export const Header: React.FC<HeaderProps> = ({
   onRefresh,
   onSeedDemo,
   isSeeding,
+  currentUsername,
+  currentRole,
+  onLogout,
 }) => {
   const cameraIds = ['C1', 'C2', 'C3', 'C4']
+  const roleColor = currentRole ? (ROLE_COLORS[currentRole] ?? 'bg-slate-800 text-slate-400 border-slate-700') : ''
 
   return (
     <header className="bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex items-center justify-between select-none">
@@ -65,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Connection Health & Actions */}
+      {/* Connection Health, User Info & Actions */}
       <div className="flex items-center space-x-3">
         {/* WebSocket Status */}
         <div
@@ -80,12 +94,21 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="font-mono">{wsConnected ? 'LIVE' : 'DISCONNECTED'}</span>
         </div>
 
+        {/* User Role Badge */}
+        {currentUsername && currentRole && (
+          <div className={`hidden sm:flex items-center space-x-1.5 text-xs px-2 py-1 rounded border ${roleColor}`}>
+            <span className="font-medium">{currentUsername}</span>
+            <span className="opacity-60">·</span>
+            <span className="font-mono">{currentRole}</span>
+          </div>
+        )}
+
         {/* Demo Action Button */}
         <button
           onClick={onSeedDemo}
           disabled={isSeeding || !backendConnected}
           className="flex items-center space-x-1 text-xs px-2.5 py-1 bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 rounded transition disabled:opacity-50 cursor-pointer"
-          title="Seed controlled C2 -> C3 -> C1 movement scenario"
+          title="Seed controlled C2 → C3 → C1 movement scenario"
         >
           <Play className="w-3 h-3 text-indigo-400" />
           <span>Demo Movement (C2→C3→C1)</span>
@@ -99,7 +122,17 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <RefreshCw className="w-4 h-4" />
         </button>
+
+        {/* Logout button */}
+        <button
+          onClick={onLogout}
+          className="p-1 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded transition cursor-pointer"
+          title="Sign out"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
       </div>
     </header>
   )
 }
+

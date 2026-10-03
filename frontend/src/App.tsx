@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  clearStoredAuth,
   fetchAlerts,
   fetchCameras,
   fetchHealth,
   fetchTracks,
   fetchWorkerStatuses,
+  getStoredToken,
+  getStoredUserInfo,
   getWebSocketUrl,
   seedDemoMovement,
   updateAlertStatus,
@@ -12,6 +15,7 @@ import {
 import { AlertDetails } from './components/AlertDetails'
 import { AlertFeed } from './components/AlertFeed'
 import { Header } from './components/Header'
+import { LoginScreen } from './components/LoginScreen'
 import { MapView } from './components/MapView'
 import { TrackTimeline } from './components/TrackTimeline'
 import type {
@@ -24,6 +28,8 @@ import type {
 } from './types'
 
 export const App: React.FC = () => {
+  const [currentUser, setCurrentUser] = useState<string | null>(() => getStoredUserInfo()?.username || null)
+  const [currentRole, setCurrentRole] = useState<string | null>(() => getStoredUserInfo()?.role || null)
   const [backendConnected, setBackendConnected] = useState<boolean>(false)
   const [wsConnected, setWsConnected] = useState<boolean>(false)
   const [alerts, setAlerts] = useState<AlertRecord[]>([])
@@ -38,7 +44,7 @@ export const App: React.FC = () => {
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimeoutRef = useRef<number | null>(null)
 
-  // 1. Initial Data Fetch & Health Checks
+  // 1. Initial Data Fetch & Health Checks (only when authenticated)
   const loadInitialData = useCallback(async () => {
     try {
       const health = await fetchHealth()
@@ -68,8 +74,10 @@ export const App: React.FC = () => {
     }
   }, [selectedAlert])
 
-  // 2. Telemetry Polling (Every 3 seconds)
+  // 2. Telemetry Polling (Every 3 seconds when authenticated)
   useEffect(() => {
+    if (!currentUser || !getStoredToken()) return
+
     loadInitialData()
     const interval = setInterval(async () => {
       try {
@@ -83,31 +91,48 @@ export const App: React.FC = () => {
     }, 3000)
 
     return () => clearInterval(interval)
-  }, [loadInitialData])
+  }, [currentUser, loadInitialData])
 
-  // 3. WebSocket Real-Time Connection
+  // 3. WebSocket Real-Time Connection (only when authenticated)
   useEffect(() => {
-    const wsUrl = getWebSocketUrl()
+    if (!currentUser || !getStoredToken()) return
+
+    let isMounted = true
 
     const connectWs = () => {
-      if (wsRef.current) {
-        wsRef.current.close()
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current)
+        reconnectTimeoutRef.current = null
       }
 
+      const prevSocket = wsRef.current
+      if (prevSocket) {
+        wsRef.current = null
+        prevSocket.onopen = null
+        prevSocket.onmessage = null
+        prevSocket.onclose = null
+        prevSocket.onerror = null
+        try {
+          prevSocket.close()
+        } catch {}
+      }
+
+      const wsUrl = getWebSocketUrl()
       const ws = new WebSocket(wsUrl)
       wsRef.current = ws
 
       ws.onopen = () => {
+        if (!isMounted || wsRef.current !== ws) return
         setWsConnected(true)
       }
 
       ws.onmessage = (event) => {
+        if (!isMounted || wsRef.current !== ws) return
         try {
           const msg: WebSocketAlertMessage = JSON.parse(event.data)
           if (msg.event === 'alert.created' && msg.alert) {
             const newAlert = msg.alert
             setAlerts((prev) => {
-              // Deduplicate if already present
               const exists = prev.some((a) => a.id === newAlert.id || a.alert_id === newAlert.alert_id)
               if (exists) {
                 return prev.map((a) =>
@@ -117,7 +142,6 @@ export const App: React.FC = () => {
               return [newAlert, ...prev]
             })
 
-            // Automatically focus newest alert if user has not explicitly locked selection
             setSelectedAlert(newAlert)
           } else if (msg.event === 'alert.updated' && msg.alert) {
             const updatedAlert = msg.alert
@@ -138,24 +162,41 @@ export const App: React.FC = () => {
       }
 
       ws.onclose = () => {
+        if (!isMounted || wsRef.current !== ws) return
         setWsConnected(false)
-        // Automatic reconnection attempt
         reconnectTimeoutRef.current = window.setTimeout(connectWs, 3000)
       }
 
       ws.onerror = () => {
+        if (!isMounted || wsRef.current !== ws) return
         setWsConnected(false)
-        ws.close()
+        try {
+          ws.close()
+        } catch {}
       }
     }
 
     connectWs()
 
     return () => {
-      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current)
-      if (wsRef.current) wsRef.current.close()
+      isMounted = false
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current)
+        reconnectTimeoutRef.current = null
+      }
+      const s = wsRef.current
+      if (s) {
+        wsRef.current = null
+        s.onopen = null
+        s.onmessage = null
+        s.onclose = null
+        s.onerror = null
+        try {
+          s.close()
+        } catch {}
+      }
     }
-  }, [])
+  }, [currentUser])
 
   // 4. Update Alert Status (Confirm / Reject)
   const handleUpdateStatus = async (alertId: string | number, newStatus: AlertStatus) => {
@@ -190,6 +231,31 @@ export const App: React.FC = () => {
     }
   }
 
+  const handleLogout = () => {
+    clearStoredAuth()
+    setCurrentUser(null)
+    setCurrentRole(null)
+    setWsConnected(false)
+    if (wsRef.current) {
+      try {
+        wsRef.current.close()
+      } catch {}
+      wsRef.current = null
+    }
+  }
+
+  // If unauthenticated, show Login Screen
+  if (!currentUser || !getStoredToken()) {
+    return (
+      <LoginScreen
+        onAuthenticated={(username, role) => {
+          setCurrentUser(username)
+          setCurrentRole(role)
+        }}
+      />
+    )
+  }
+
   // Derive relevant tracks for selected person
   const selectedPersonId = selectedAlert?.person_id
   const personTracks = selectedPersonId
@@ -220,6 +286,9 @@ export const App: React.FC = () => {
         onRefresh={loadInitialData}
         onSeedDemo={handleSeedDemo}
         isSeeding={isSeedingDemo}
+        currentUsername={currentUser}
+        currentRole={currentRole}
+        onLogout={handleLogout}
       />
 
       {/* Main Operational Body */}
@@ -277,3 +346,4 @@ export const App: React.FC = () => {
 }
 
 export default App
+

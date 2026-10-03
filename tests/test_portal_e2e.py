@@ -16,13 +16,19 @@ def test_portal_api_and_demo_e2e():
     init_db()
     client = TestClient(app)
 
-    # 1. Health check
+    # 1. Health check (public)
     resp = client.get("/health")
     assert resp.status_code == 200
     assert resp.json()["status"] == "ok"
 
+    # Authenticate as operator/admin
+    login_resp = client.post("/api/auth/login", data={"username": "admin", "password": "admin-demo-CHANGE-ME"})
+    assert login_resp.status_code == 200
+    token = login_resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
     # 2. Get cameras
-    resp = client.get("/api/cameras")
+    resp = client.get("/api/cameras", headers=headers)
     assert resp.status_code == 200
     cameras = resp.json()
     assert len(cameras) >= 4
@@ -30,7 +36,7 @@ def test_portal_api_and_demo_e2e():
     assert {"C1", "C2", "C3", "C4"}.issubset(cam_ids)
 
     # 3. Seed demo movement (C2 -> C3 -> C1)
-    resp = client.post("/api/demo/seed-movement")
+    resp = client.post("/api/demo/seed-movement", headers=headers)
     assert resp.status_code in (200, 201)
     alerts = resp.json()
     assert len(alerts) == 3
@@ -41,7 +47,7 @@ def test_portal_api_and_demo_e2e():
 
     # 4. Query tracks for person_id
     target_person_id = alerts[0]["person_id"]
-    resp = client.get(f"/api/tracks?person_id={target_person_id}")
+    resp = client.get(f"/api/tracks?person_id={target_person_id}", headers=headers)
     assert resp.status_code == 200
     tracks = resp.json()
     assert len(tracks) == 3
@@ -50,13 +56,13 @@ def test_portal_api_and_demo_e2e():
 
     # 5. Verify human operator verification: Confirm (VERIFIED)
     first_alert_id = alerts[0]["id"]
-    patch_resp = client.patch(f"/api/alerts/{first_alert_id}", json={"status": "VERIFIED"})
+    patch_resp = client.patch(f"/api/alerts/{first_alert_id}", json={"status": "VERIFIED"}, headers=headers)
     assert patch_resp.status_code == 200
     assert patch_resp.json()["status"] == "VERIFIED"
 
     # 6. Verify human operator rejection: Dismiss (DISMISSED)
     second_alert_id = alerts[1]["id"]
-    patch_resp2 = client.patch(f"/api/alerts/{second_alert_id}", json={"status": "DISMISSED"})
+    patch_resp2 = client.patch(f"/api/alerts/{second_alert_id}", json={"status": "DISMISSED"}, headers=headers)
     assert patch_resp2.status_code == 200
     assert patch_resp2.json()["status"] == "DISMISSED"
 

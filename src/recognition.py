@@ -99,6 +99,7 @@ class VideoRecognizer:
         iou_threshold: float = DEFAULT_IOU_THRESHOLD,
         max_missed_frames: int = DEFAULT_MAX_MISSED_FRAMES,
         track_top_k: int = DEFAULT_TRACK_TOP_K,
+        cooldown_seconds: Optional[float] = None,
         verbose_debug: bool = False,
     ):
         """
@@ -112,6 +113,7 @@ class VideoRecognizer:
             iou_threshold: Minimum IoU overlap for tracking association (default: 0.30).
             max_missed_frames: Consecutive missed frames before track termination (default: 5).
             track_top_k: Top-k scores to average for track aggregation (default: 3).
+            cooldown_seconds: Deprecated / backward-compatible parameter (now handled via IoU tracking).
             verbose_debug: Enable detailed frame/face debugging console output.
         """
         self.engine = face_engine or FaceEngine()
