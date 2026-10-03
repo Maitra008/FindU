@@ -5,14 +5,13 @@ import {
   LogOut,
   Play,
   RefreshCw,
-  UserPlus,
   Video,
   Wifi,
   WifiOff,
 } from 'lucide-react'
 import type { WorkerMetrics } from '../types'
 
-export type NavigationTab = 'live-operations' | 'missing-persons'
+export type NavigationTab = 'live-operations' | 'missing-persons' | 'camera-command-center'
 
 interface HeaderProps {
   backendConnected: boolean
@@ -26,7 +25,6 @@ interface HeaderProps {
   onLogout: () => void
   activeTab: NavigationTab
   onTabChange: (tab: NavigationTab) => void
-  onOpenRegisterModal?: () => void
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -48,11 +46,9 @@ export const Header: React.FC<HeaderProps> = ({
   onLogout,
   activeTab,
   onTabChange,
-  onOpenRegisterModal,
 }) => {
   const cameraIds = ['C1', 'C2', 'C3', 'C4']
   const roleColor = currentRole ? (ROLE_COLORS[currentRole] ?? 'bg-slate-800 text-slate-400 border-slate-700') : ''
-  const canRegister = currentRole === 'ADMIN' || currentRole === 'POLICE'
 
   return (
     <header className="bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex items-center justify-between select-none">
@@ -93,6 +89,17 @@ export const Header: React.FC<HeaderProps> = ({
           <FolderOpen className="w-3.5 h-3.5" />
           <span>Cases & Registration</span>
         </button>
+        <button
+          onClick={() => onTabChange('camera-command-center')}
+          className={`flex items-center space-x-1.5 px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+            activeTab === 'camera-command-center'
+              ? 'bg-sky-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <CameraIcon className="w-3.5 h-3.5" />
+          <span>Camera Command Center</span>
+        </button>
       </div>
 
       {/* Camera Live Status Bar */}
@@ -126,17 +133,6 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Connection Health, User Info & Actions */}
       <div className="flex items-center space-x-2.5">
-        {/* Register Person Shortcut Button */}
-        {canRegister && onOpenRegisterModal && (
-          <button
-            onClick={onOpenRegisterModal}
-            className="flex items-center space-x-1 text-xs px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded shadow transition cursor-pointer"
-            title="Register New Missing Person"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Register Person</span>
-          </button>
-        )}
         {/* WebSocket Status */}
         <div
           className={`flex items-center space-x-1.5 text-xs px-2 py-1 rounded ${
@@ -191,4 +187,3 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   )
 }
-
