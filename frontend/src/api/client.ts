@@ -6,7 +6,9 @@ import type {
   AlertRecord,
   AlertStatus,
   Camera,
+  CameraTestResult,
   HealthResponse,
+  HistoricalJobRecord,
   PersonRecord,
   TrackRecord,
   WorkerMetrics,
@@ -74,8 +76,6 @@ export function getMediaUrl(relativePath: string | null | undefined): string {
   if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
     return relativePath
   }
-  // Convert relative data path to backend media endpoint
-  // e.g. data/reference_photos/p1/ref_01.jpg -> /api/media/reference/p1/ref_01.jpg
   if (relativePath.includes('reference_photos/')) {
     const parts = relativePath.split('reference_photos/')[1]?.split('/')
     if (parts && parts.length >= 2) {
@@ -103,29 +103,33 @@ export async function login(username: string, password: string): Promise<LoginRe
 
   const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: formData.toString(),
   })
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}))
-    throw new Error(errorData.detail || `Login failed: ${res.statusText}`)
+    throw new Error(errorData.detail || `Authentication failed: ${res.statusText}`)
   }
 
-  return res.json()
+  const data: LoginResponse = await res.json()
+  setStoredToken(data.access_token)
+  setStoredUserInfo(data.username, data.role)
+  return data
 }
 
 export async function fetchHealth(): Promise<HealthResponse> {
-  const res = await fetch(`${API_BASE_URL}/health`)
+  const res = await fetch(`${API_BASE_URL}/health`, {
+    headers: getAuthHeaders(false),
+  })
   if (!res.ok) throw new Error(`Health check failed: ${res.statusText}`)
   return res.json()
 }
 
 export async function fetchCameras(enabledOnly = false): Promise<Camera[]> {
-  const url = `${API_BASE_URL}/api/cameras${enabledOnly ? '?enabled_only=true' : ''}`
-  const res = await fetch(url, { headers: getAuthHeaders() })
+  const res = await fetch(`${API_BASE_URL}/api/cameras?enabled_only=${enabledOnly}`, {
+    headers: getAuthHeaders(),
+  })
   if (!res.ok) throw new Error(`Failed to fetch cameras: ${res.statusText}`)
   return res.json()
 }
@@ -133,12 +137,16 @@ export async function fetchCameras(enabledOnly = false): Promise<Camera[]> {
 export async function fetchAlerts(params?: {
   camera_id?: string
   person_id?: string
-  status?: string
+  status?: AlertStatus
+  limit?: number
+  offset?: number
 }): Promise<AlertRecord[]> {
   const query = new URLSearchParams()
   if (params?.camera_id) query.append('camera_id', params.camera_id)
   if (params?.person_id) query.append('person_id', params.person_id)
   if (params?.status) query.append('status', params.status)
+  if (params?.limit) query.append('limit', params.limit.toString())
+  if (params?.offset) query.append('offset', params.offset.toString())
 
   const url = `${API_BASE_URL}/api/alerts${query.toString() ? `?${query.toString()}` : ''}`
   const res = await fetch(url, { headers: getAuthHeaders() })
@@ -146,9 +154,21 @@ export async function fetchAlerts(params?: {
   return res.json()
 }
 
-export async function fetchAlertById(alertId: string | number): Promise<AlertRecord> {
-  const res = await fetch(`${API_BASE_URL}/api/alerts/${alertId}`, { headers: getAuthHeaders() })
-  if (!res.ok) throw new Error(`Failed to fetch alert ${alertId}: ${res.statusText}`)
+export async function fetchTracks(params?: {
+  camera_id?: string
+  person_id?: string
+  status?: string
+  limit?: number
+}): Promise<TrackRecord[]> {
+  const query = new URLSearchParams()
+  if (params?.camera_id) query.append('camera_id', params.camera_id)
+  if (params?.person_id) query.append('person_id', params.person_id)
+  if (params?.status) query.append('status', params.status)
+  if (params?.limit) query.append('limit', params.limit.toString())
+
+  const url = `${API_BASE_URL}/api/tracks${query.toString() ? `?${query.toString()}` : ''}`
+  const res = await fetch(url, { headers: getAuthHeaders() })
+  if (!res.ok) throw new Error(`Failed to fetch tracks: ${res.statusText}`)
   return res.json()
 }
 
@@ -168,24 +188,10 @@ export async function updateAlertStatus(
   return res.json()
 }
 
-export async function fetchTracks(params?: {
-  camera_id?: string
-  person_id?: string
-  status?: string
-}): Promise<TrackRecord[]> {
-  const query = new URLSearchParams()
-  if (params?.camera_id) query.append('camera_id', params.camera_id)
-  if (params?.person_id) query.append('person_id', params.person_id)
-  if (params?.status) query.append('status', params.status)
-
-  const url = `${API_BASE_URL}/api/tracks${query.toString() ? `?${query.toString()}` : ''}`
-  const res = await fetch(url, { headers: getAuthHeaders() })
-  if (!res.ok) throw new Error(`Failed to fetch tracks: ${res.statusText}`)
-  return res.json()
-}
-
 export async function fetchWorkerStatuses(): Promise<WorkerMetrics[]> {
-  const res = await fetch(`${API_BASE_URL}/api/workers/status`, { headers: getAuthHeaders() })
+  const res = await fetch(`${API_BASE_URL}/api/workers/status`, {
+    headers: getAuthHeaders(),
+  })
   if (!res.ok) throw new Error(`Failed to fetch worker statuses: ${res.statusText}`)
   return res.json()
 }
@@ -244,7 +250,7 @@ export async function fetchPersonDetails(personId: string): Promise<PersonRecord
 export async function registerMissingPerson(formData: FormData): Promise<PersonRecord> {
   const res = await fetch(`${API_BASE_URL}/api/persons`, {
     method: 'POST',
-    headers: getAuthHeaders(false), // FormData manages its own Content-Type boundary
+    headers: getAuthHeaders(false),
     body: formData,
   })
 
@@ -274,3 +280,155 @@ export async function updatePerson(
   return res.json()
 }
 
+// ---------------------------------------------------------------------------
+// Camera Command Center & Historical Footage API
+// ---------------------------------------------------------------------------
+
+export async function createCamera(data: {
+  camera_id: string
+  name: string
+  source: string
+  source_type: string
+  location?: string
+  enabled?: boolean
+  sample_fps?: number
+  transport?: string
+}): Promise<Camera> {
+  const res = await fetch(`${API_BASE_URL}/api/cameras`, {
+    method: 'POST',
+    headers: getAuthHeaders(true),
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Failed to create camera: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function updateCamera(
+  cameraId: string,
+  updates: Partial<Camera>
+): Promise<Camera> {
+  const res = await fetch(`${API_BASE_URL}/api/cameras/${encodeURIComponent(cameraId)}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(true),
+    body: JSON.stringify(updates),
+  })
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Failed to update camera: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function deleteCamera(cameraId: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/cameras/${encodeURIComponent(cameraId)}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(true),
+  })
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Failed to delete camera: ${res.statusText}`)
+  }
+}
+
+export async function testCameraSource(data: {
+  source: string
+  source_type?: string
+  transport?: string
+}): Promise<CameraTestResult> {
+  const res = await fetch(`${API_BASE_URL}/api/cameras/test-source`, {
+    method: 'POST',
+    headers: getAuthHeaders(true),
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Connection test failed: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function testExistingCamera(
+  cameraId: string
+): Promise<CameraTestResult> {
+  const res = await fetch(`${API_BASE_URL}/api/cameras/${encodeURIComponent(cameraId)}/test`, {
+    method: 'POST',
+    headers: getAuthHeaders(true),
+  })
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Test failed: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function uploadHistoricalFootage(
+  formData: FormData
+): Promise<{ mode: string; job?: HistoricalJobRecord; camera?: Camera; message: string }> {
+  const res = await fetch(`${API_BASE_URL}/api/historical/upload`, {
+    method: 'POST',
+    headers: getAuthHeaders(false),
+    body: formData,
+  })
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Historical upload failed: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function fetchHistoricalJobs(): Promise<HistoricalJobRecord[]> {
+  const res = await fetch(`${API_BASE_URL}/api/historical/jobs`, {
+    headers: getAuthHeaders(true),
+  })
+  if (!res.ok) {
+    throw new Error(`Failed to fetch historical jobs: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function fetchHistoricalJob(jobId: string): Promise<HistoricalJobRecord> {
+  const res = await fetch(`${API_BASE_URL}/api/historical/jobs/${encodeURIComponent(jobId)}`, {
+    headers: getAuthHeaders(true),
+  })
+  if (!res.ok) {
+    throw new Error(`Failed to fetch job ${jobId}: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+export async function cancelHistoricalJob(jobId: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/historical/jobs/${encodeURIComponent(jobId)}/cancel`, {
+    method: 'POST',
+    headers: getAuthHeaders(true),
+  })
+  if (!res.ok) {
+    throw new Error(`Failed to cancel job ${jobId}: ${res.statusText}`)
+  }
+}
+
+export async function pauseWorker(cameraId: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/workers/${encodeURIComponent(cameraId)}/pause`, {
+    method: 'POST',
+    headers: getAuthHeaders(true),
+  })
+  if (!res.ok) throw new Error(`Failed to pause worker ${cameraId}`)
+}
+
+export async function resumeWorker(cameraId: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/workers/${encodeURIComponent(cameraId)}/resume`, {
+    method: 'POST',
+    headers: getAuthHeaders(true),
+  })
+  if (!res.ok) throw new Error(`Failed to resume worker ${cameraId}`)
+}
+
+export async function setWorkerSpeed(cameraId: string, speed: number): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/workers/${encodeURIComponent(cameraId)}/speed?speed=${speed}`, {
+    method: 'POST',
+    headers: getAuthHeaders(true),
+  })
+  if (!res.ok) throw new Error(`Failed to set worker speed for ${cameraId}`)
+}
