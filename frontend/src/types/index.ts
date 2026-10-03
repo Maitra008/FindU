@@ -167,3 +167,4 @@ export interface CameraLocation {
   lng: number
   zone: string
 }
+

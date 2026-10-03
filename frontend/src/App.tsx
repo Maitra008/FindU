@@ -14,7 +14,6 @@ import {
 } from './api/client'
 import { AlertDetails } from './components/AlertDetails'
 import { AlertFeed } from './components/AlertFeed'
-import { CameraCommandCenter } from './components/CameraCommandCenter'
 import { Header } from './components/Header'
 import type { NavigationTab } from './components/Header'
 import { LoginScreen } from './components/LoginScreen'
@@ -301,7 +300,7 @@ export const App: React.FC = () => {
       />
 
       {/* Main Content Area */}
-      {activeTab === 'live-operations' && (
+      {activeTab === 'live-operations' ? (
         <div className="flex flex-1 overflow-hidden relative">
           {/* Left: Real-time Alert Feed */}
           <AlertFeed
@@ -350,9 +349,7 @@ export const App: React.FC = () => {
             isUpdating={isUpdatingStatus}
           />
         </div>
-      )}
-
-      {activeTab === 'missing-persons' && (
+      ) : (
         <div className="flex-1 overflow-hidden">
           <MissingPersonsView
             currentRole={currentRole}
@@ -361,16 +358,6 @@ export const App: React.FC = () => {
               setSelectedAlert(alert)
               setActiveTab('live-operations')
             }}
-          />
-        </div>
-      )}
-
-      {activeTab === 'camera-command-center' && (
-        <div className="flex-1 overflow-hidden">
-          <CameraCommandCenter
-            cameras={cameras}
-            currentUser={getStoredUserInfo()}
-            onRefreshCameras={loadInitialData}
           />
         </div>
       )}

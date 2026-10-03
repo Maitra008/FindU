@@ -260,3 +260,4 @@ def test_historical_footage_endpoints(test_app, admin_headers, police_headers, n
         res_job = client.get(f"/api/historical/jobs/{job_id}", headers=ngo_headers)
         assert res_job.status_code == 200
         assert res_job.json()["job_id"] == job_id
+

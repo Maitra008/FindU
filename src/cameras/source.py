@@ -60,3 +60,4 @@ class CameraSource(ABC):
         Release hardware, network handles, or file descriptors.
         """
         pass
+

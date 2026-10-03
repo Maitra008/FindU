@@ -198,3 +198,4 @@ def cancel_historical_job(
     if not cancelled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Job '{job_id}' not active")
     return {"message": f"Historical job '{job_id}' cancelled"}
+

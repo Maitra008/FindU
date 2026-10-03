@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import type { WorkerMetrics } from '../types'
 
-export type NavigationTab = 'live-operations' | 'missing-persons' | 'camera-command-center'
+export type NavigationTab = 'live-operations' | 'missing-persons'
 
 interface HeaderProps {
   backendConnected: boolean
@@ -92,17 +92,6 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <FolderOpen className="w-3.5 h-3.5" />
           <span>Cases & Registration</span>
-        </button>
-        <button
-          onClick={() => onTabChange('camera-command-center')}
-          className={`flex items-center space-x-1.5 px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
-            activeTab === 'camera-command-center'
-              ? 'bg-sky-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-          }`}
-        >
-          <CameraIcon className="w-3.5 h-3.5" />
-          <span>Camera Command Center</span>
         </button>
       </div>
 
