@@ -1,6 +1,7 @@
 """
 Worker Manager.
 Orchestrates lifecycle (start, stop, monitor) for multiple concurrent CameraWorkers (C1 to C4).
+Provides dynamic FAISS face index updates upon person registration.
 """
 
 import logging
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
 class WorkerManager:
     """
     Manages concurrent camera worker streams (C1..C4).
-    Provides start, stop, restart, and telemetry query operations.
+    Provides start, stop, restart, telemetry query, and dynamic face index updates.
     """
 
     def __init__(
@@ -57,6 +58,35 @@ class WorkerManager:
             elif EMBEDDINGS_DIR.exists():
                 self.index.build_from_directory(EMBEDDINGS_DIR)
         return self.index
+
+    def register_face_identity(
+        self,
+        embedding: Any,
+        person_id: str,
+        name: str,
+        npz_path: str = "",
+    ) -> None:
+        """
+        Dynamically update shared FAISS index with newly registered identity
+        and propagate to all active CameraWorkers.
+        """
+        index = self._get_index()
+        existing = any(m.get("person_id") == person_id for m in index.metadata)
+        if existing and EMBEDDINGS_DIR.exists():
+            index.build_from_directory(EMBEDDINGS_DIR)
+        else:
+            index.add_identity(
+                embedding=embedding,
+                person_id=person_id,
+                name=name,
+                num_images=1,
+                npz_file=npz_path,
+            )
+
+        # Propagate updated index reference to all camera workers
+        for worker in self.workers.values():
+            worker.index = index
+        logger.info("Propagated updated FaceIndex (%d identities) to %d workers.", index.total_identities, len(self.workers))
 
     def add_camera_worker(
         self,
@@ -171,4 +201,3 @@ def get_worker_manager() -> WorkerManager:
     if _worker_manager_instance is None:
         _worker_manager_instance = WorkerManager()
     return _worker_manager_instance
-

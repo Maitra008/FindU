@@ -87,12 +87,49 @@ def check_db_connection(engine: Optional[Engine] = None) -> bool:
         return False
 
 
+def _migrate_sqlite_columns(engine: Engine) -> None:
+    """Safely add any missing columns to existing SQLite tables."""
+    try:
+        with engine.connect() as conn:
+            # Check if persons table exists
+            table_check = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='persons'")).fetchone()
+            if not table_check:
+                return
+
+            # Fetch existing columns
+            cols = {row[1] for row in conn.execute(text("PRAGMA table_info(persons)")).fetchall()}
+            
+            # Map of column name to SQL definition
+            expected_cols = {
+                "case_id": "VARCHAR(64)",
+                "age": "INTEGER",
+                "gender": "VARCHAR(32)",
+                "date_last_seen": "DATETIME",
+                "last_known_location": "VARCHAR(256)",
+                "notes": "TEXT",
+                "status": "VARCHAR(32) DEFAULT 'ACTIVE'",
+                "photo_paths": "TEXT DEFAULT '[]'",
+                "embedding_path": "VARCHAR(512)",
+                "is_active": "BOOLEAN DEFAULT 1",
+                "updated_at": "DATETIME",
+            }
+
+            for col, col_type in expected_cols.items():
+                if col not in cols:
+                    logger.info("Migrating SQLite schema: adding column %s to persons table", col)
+                    conn.execute(text(f"ALTER TABLE persons ADD COLUMN {col} {col_type}"))
+            conn.commit()
+    except Exception as e:
+        logger.warning("SQLite column migration notice: %s", e)
+
+
 def init_db(engine: Optional[Engine] = None, seed_defaults: bool = True) -> None:
     """
     Create all database tables and seed default camera / person / user records if empty.
     """
     eng = engine or get_engine()
     Base.metadata.create_all(bind=eng)
+    _migrate_sqlite_columns(eng)
     logger.info("Database tables verified/created successfully.")
 
     if seed_defaults:

@@ -1,6 +1,6 @@
 """
 SQLAlchemy Database Models for Missing Person Recognition System.
-Defines schemas for Person, Camera, Track, and Alert entities.
+Defines schemas for Person, Camera, Track, Alert, User, and AuditLog entities.
 """
 
 from datetime import datetime, timezone
@@ -28,22 +28,49 @@ def get_utc_now() -> datetime:
 
 
 class Person(Base):
-    """Registered person / missing person identity."""
+    """Registered person / missing person identity and case record."""
     __tablename__ = "persons"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     person_id = Column(String(64), unique=True, nullable=False, index=True)
     name = Column(String(128), nullable=False)
+    case_id = Column(String(64), nullable=True, index=True)
+    age = Column(Integer, nullable=True)
+    gender = Column(String(32), nullable=True)
+    date_last_seen = Column(String(64), nullable=True)
+    last_known_location = Column(String(256), nullable=True)
     notes = Column(Text, nullable=True)
+    status = Column(String(32), default="ACTIVE", nullable=False)  # ACTIVE, FOUND, CLOSED
+    photo_paths = Column(Text, nullable=True)  # JSON list of relative photo paths
+    embedding_path = Column(String(512), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=get_utc_now, nullable=False)
+    updated_at = Column(DateTime, default=get_utc_now, onupdate=get_utc_now, nullable=False)
 
     def to_dict(self) -> Dict[str, Any]:
+        photos = []
+        if self.photo_paths:
+            try:
+                photos = json.loads(self.photo_paths) if isinstance(self.photo_paths, str) else self.photo_paths
+            except Exception:
+                photos = [self.photo_paths]
+
         return {
             "id": self.id,
             "person_id": self.person_id,
             "name": self.name,
+            "case_id": self.case_id,
+            "age": self.age,
+            "gender": self.gender,
+            "date_last_seen": self.date_last_seen,
+            "last_known_location": self.last_known_location,
             "notes": self.notes,
+            "status": self.status,
+            "photo_paths": photos,
+            "embedding_path": self.embedding_path,
+            "is_active": self.is_active,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
 

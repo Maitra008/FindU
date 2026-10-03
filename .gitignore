@@ -29,6 +29,8 @@ Thumbs.db
 # Temporary/Output video caches (except test assets)
 data/*.db
 data/missing_person.db
+data/reference_photos/
+data/snapshots/
 
 # Frontend
 frontend/node_modules/
@@ -38,5 +40,3 @@ frontend/.vite/
 # Environment secrets — never commit .env to version control
 .env
 
-# Scratch directory
-scratch/

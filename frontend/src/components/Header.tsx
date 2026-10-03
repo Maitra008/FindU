@@ -1,6 +1,18 @@
 import React from 'react'
-import { Camera as CameraIcon, LogOut, Play, RefreshCw, Wifi, WifiOff } from 'lucide-react'
+import {
+  Camera as CameraIcon,
+  FolderOpen,
+  LogOut,
+  Play,
+  RefreshCw,
+  UserPlus,
+  Video,
+  Wifi,
+  WifiOff,
+} from 'lucide-react'
 import type { WorkerMetrics } from '../types'
+
+export type NavigationTab = 'live-operations' | 'missing-persons'
 
 interface HeaderProps {
   backendConnected: boolean
@@ -12,6 +24,9 @@ interface HeaderProps {
   currentUsername: string | null
   currentRole: string | null
   onLogout: () => void
+  activeTab: NavigationTab
+  onTabChange: (tab: NavigationTab) => void
+  onOpenRegisterModal?: () => void
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -31,9 +46,13 @@ export const Header: React.FC<HeaderProps> = ({
   currentUsername,
   currentRole,
   onLogout,
+  activeTab,
+  onTabChange,
+  onOpenRegisterModal,
 }) => {
   const cameraIds = ['C1', 'C2', 'C3', 'C4']
   const roleColor = currentRole ? (ROLE_COLORS[currentRole] ?? 'bg-slate-800 text-slate-400 border-slate-700') : ''
+  const canRegister = currentRole === 'ADMIN' || currentRole === 'POLICE'
 
   return (
     <header className="bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex items-center justify-between select-none">
@@ -50,8 +69,34 @@ export const Header: React.FC<HeaderProps> = ({
         </span>
       </div>
 
+      {/* Main View Navigation Tabs */}
+      <div className="flex items-center space-x-1 bg-slate-950 p-0.5 rounded-lg border border-slate-800">
+        <button
+          onClick={() => onTabChange('live-operations')}
+          className={`flex items-center space-x-1.5 px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+            activeTab === 'live-operations'
+              ? 'bg-sky-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <Video className="w-3.5 h-3.5" />
+          <span>Live Operations</span>
+        </button>
+        <button
+          onClick={() => onTabChange('missing-persons')}
+          className={`flex items-center space-x-1.5 px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+            activeTab === 'missing-persons'
+              ? 'bg-sky-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <FolderOpen className="w-3.5 h-3.5" />
+          <span>Cases & Registration</span>
+        </button>
+      </div>
+
       {/* Camera Live Status Bar */}
-      <div className="hidden md:flex items-center space-x-3 bg-slate-950 px-3 py-1 rounded-md border border-slate-800">
+      <div className="hidden lg:flex items-center space-x-3 bg-slate-950 px-3 py-1 rounded-md border border-slate-800">
         <div className="text-xs font-semibold text-slate-400 flex items-center space-x-1">
           <CameraIcon className="w-3.5 h-3.5" />
           <span>Feeds:</span>
@@ -80,7 +125,18 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Connection Health, User Info & Actions */}
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-2.5">
+        {/* Register Person Shortcut Button */}
+        {canRegister && onOpenRegisterModal && (
+          <button
+            onClick={onOpenRegisterModal}
+            className="flex items-center space-x-1 text-xs px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded shadow transition cursor-pointer"
+            title="Register New Missing Person"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Register Person</span>
+          </button>
+        )}
         {/* WebSocket Status */}
         <div
           className={`flex items-center space-x-1.5 text-xs px-2 py-1 rounded ${

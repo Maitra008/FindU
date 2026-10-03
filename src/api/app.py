@@ -1,7 +1,7 @@
 """
 FastAPI Application Entry Point.
 Provides REST API endpoints, database initialization, and real-time WebSocket alert feeds.
-Part 6: JWT authentication, role-based access control, audit logging.
+Part 6 & Missing Persons Case Management: JWT authentication, role-based access control, audit logging.
 """
 
 import asyncio
@@ -20,6 +20,8 @@ from src.api.routes.auth import router as auth_router
 from src.api.routes.cameras import router as cameras_router
 from src.api.routes.demo import router as demo_router
 from src.api.routes.health import router as health_router
+from src.api.routes.media import router as media_router
+from src.api.routes.persons import router as persons_router
 from src.api.routes.workers import router as workers_router
 from src.api.websocket import ws_manager
 from src.auth.dependencies import get_ws_user
@@ -74,7 +76,7 @@ def create_app(
             "Multi-camera face recognition, IoU tracking, PostgreSQL persistence, "
             "real-time WebSocket alerts, JWT authentication, and role-based access control."
         ),
-        version="6.0.0",
+        version="6.1.0",
         lifespan=lifespan,
     )
 
@@ -90,6 +92,7 @@ def create_app(
     # Public routes (no auth required)
     app.include_router(health_router)
     app.include_router(auth_router)
+    app.include_router(media_router)
 
     # Protected REST routes (auth required via individual route dependencies)
     app.include_router(cameras_router)
@@ -97,6 +100,7 @@ def create_app(
     app.include_router(workers_router)
     app.include_router(demo_router)
     app.include_router(audit_router)
+    app.include_router(persons_router)
 
     # WebSocket Real-Time Alert Feed — JWT authenticated via ?token= query param
     @app.websocket("/ws/alerts")
@@ -134,4 +138,3 @@ def create_app(
 
 # Default app instance
 app = create_app()
-

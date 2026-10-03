@@ -7,6 +7,7 @@ import type {
   AlertStatus,
   Camera,
   HealthResponse,
+  PersonRecord,
   TrackRecord,
   WorkerMetrics,
 } from '../types'
@@ -56,15 +57,36 @@ export function getWebSocketUrl(): string {
   return `${wsProtocol}//${host}/ws/alerts${tokenQuery}`
 }
 
-function getAuthHeaders(): HeadersInit {
+function getAuthHeaders(includeJson = true): HeadersInit {
   const token = getStoredToken()
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+  const headers: Record<string, string> = {}
+  if (includeJson) {
+    headers['Content-Type'] = 'application/json'
   }
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
   }
   return headers
+}
+
+export function getMediaUrl(relativePath: string | null | undefined): string {
+  if (!relativePath) return ''
+  if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
+    return relativePath
+  }
+  // Convert relative data path to backend media endpoint
+  // e.g. data/reference_photos/p1/ref_01.jpg -> /api/media/reference/p1/ref_01.jpg
+  if (relativePath.includes('reference_photos/')) {
+    const parts = relativePath.split('reference_photos/')[1]?.split('/')
+    if (parts && parts.length >= 2) {
+      return `${API_BASE_URL}/api/media/reference/${parts[0]}/${parts[1]}`
+    }
+  }
+  if (relativePath.includes('snapshots/')) {
+    const filename = relativePath.split('snapshots/')[1]
+    return `${API_BASE_URL}/api/media/snapshots/${filename}`
+  }
+  return `${API_BASE_URL}/${relativePath.replace(/^\/+/, '')}`
 }
 
 export interface LoginResponse {
@@ -190,6 +212,65 @@ export async function seedDemoMovement(): Promise<AlertRecord[]> {
     headers: getAuthHeaders(),
   })
   if (!res.ok) throw new Error(`Failed to seed demo movement`)
+  return res.json()
+}
+
+// ---------------------------------------------------------------------------
+// Missing Persons & Case Management API
+// ---------------------------------------------------------------------------
+
+export async function fetchPersons(params?: {
+  status?: string
+  search?: string
+}): Promise<PersonRecord[]> {
+  const query = new URLSearchParams()
+  if (params?.status && params.status !== 'ALL') query.append('status', params.status)
+  if (params?.search) query.append('search', params.search)
+
+  const url = `${API_BASE_URL}/api/persons${query.toString() ? `?${query.toString()}` : ''}`
+  const res = await fetch(url, { headers: getAuthHeaders() })
+  if (!res.ok) throw new Error(`Failed to fetch persons: ${res.statusText}`)
+  return res.json()
+}
+
+export async function fetchPersonDetails(personId: string): Promise<PersonRecord> {
+  const res = await fetch(`${API_BASE_URL}/api/persons/${encodeURIComponent(personId)}`, {
+    headers: getAuthHeaders(),
+  })
+  if (!res.ok) throw new Error(`Failed to fetch person details for ${personId}: ${res.statusText}`)
+  return res.json()
+}
+
+export async function registerMissingPerson(formData: FormData): Promise<PersonRecord> {
+  const res = await fetch(`${API_BASE_URL}/api/persons`, {
+    method: 'POST',
+    headers: getAuthHeaders(false), // FormData manages its own Content-Type boundary
+    body: formData,
+  })
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Registration failed: ${res.statusText}`)
+  }
+
+  return res.json()
+}
+
+export async function updatePerson(
+  personId: string,
+  updates: Partial<PersonRecord>
+): Promise<PersonRecord> {
+  const res = await fetch(`${API_BASE_URL}/api/persons/${encodeURIComponent(personId)}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(true),
+    body: JSON.stringify(updates),
+  })
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}))
+    throw new Error(errorData.detail || `Failed to update case: ${res.statusText}`)
+  }
+
   return res.json()
 }
 

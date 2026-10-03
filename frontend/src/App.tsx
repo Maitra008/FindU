@@ -15,8 +15,11 @@ import {
 import { AlertDetails } from './components/AlertDetails'
 import { AlertFeed } from './components/AlertFeed'
 import { Header } from './components/Header'
+import type { NavigationTab } from './components/Header'
 import { LoginScreen } from './components/LoginScreen'
 import { MapView } from './components/MapView'
+import { MissingPersonsView } from './components/MissingPersonsView'
+import { RegisterPersonModal } from './components/RegisterPersonModal'
 import { TrackTimeline } from './components/TrackTimeline'
 import type {
   AlertRecord,
@@ -30,6 +33,8 @@ import type {
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<string | null>(() => getStoredUserInfo()?.username || null)
   const [currentRole, setCurrentRole] = useState<string | null>(() => getStoredUserInfo()?.role || null)
+  const [activeTab, setActiveTab] = useState<NavigationTab>('live-operations')
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState<boolean>(false)
   const [backendConnected, setBackendConnected] = useState<boolean>(false)
   const [wsConnected, setWsConnected] = useState<boolean>(false)
   const [alerts, setAlerts] = useState<AlertRecord[]>([])
@@ -278,7 +283,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
-      {/* Header */}
+      {/* Header with Tab Navigation */}
       <Header
         backendConnected={backendConnected}
         wsConnected={wsConnected}
@@ -289,58 +294,82 @@ export const App: React.FC = () => {
         currentUsername={currentUser}
         currentRole={currentRole}
         onLogout={handleLogout}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
       />
 
-      {/* Main Operational Body */}
-      <div className="flex flex-1 overflow-hidden relative">
-        {/* Left: Real-time Alert Feed */}
-        <AlertFeed
-          alerts={alerts}
-          selectedAlert={selectedAlert}
-          onSelectAlert={(a) => setSelectedAlert(a)}
-          isLoading={isLoadingAlerts}
-        />
-
-        {/* Center: Leaflet Interactive Map & Timeline */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
-          <MapView
-            cameras={cameras}
-            workers={workers}
+      {/* Main Content Area */}
+      {activeTab === 'live-operations' ? (
+        <div className="flex flex-1 overflow-hidden relative">
+          {/* Left: Real-time Alert Feed */}
+          <AlertFeed
+            alerts={alerts}
             selectedAlert={selectedAlert}
-            movementPath={movementPath}
-            onSelectCamera={(cid) => {
-              const matchingAlert = alerts.find((a) => a.camera_id === cid)
-              if (matchingAlert) setSelectedAlert(matchingAlert)
-            }}
+            onSelectAlert={(a) => setSelectedAlert(a)}
+            isLoading={isLoadingAlerts}
           />
 
-          {/* Bottom: Cross-Camera Movement Timeline */}
-          <TrackTimeline
-            personName={selectedAlert?.person_name || 'No selection'}
-            personId={selectedAlert?.person_id || null}
-            tracks={personTracks}
-            alerts={alerts}
-            selectedTrackId={selectedAlert?.track_id || null}
-            onSelectTrackNode={(trk, alt) => {
-              if (alt) {
-                setSelectedAlert(alt)
-              } else {
-                // Find or construct temporary focal alert for this camera
-                const fallbackAlt = alerts.find((a) => a.camera_id === trk.camera_id)
-                if (fallbackAlt) setSelectedAlert(fallbackAlt)
-              }
+          {/* Center: Leaflet Interactive Map & Timeline */}
+          <div className="flex-1 flex flex-col h-full overflow-hidden">
+            <MapView
+              cameras={cameras}
+              workers={workers}
+              selectedAlert={selectedAlert}
+              movementPath={movementPath}
+              onSelectCamera={(cid) => {
+                const matchingAlert = alerts.find((a) => a.camera_id === cid)
+                if (matchingAlert) setSelectedAlert(matchingAlert)
+              }}
+            />
+
+            {/* Bottom: Cross-Camera Movement Timeline */}
+            <TrackTimeline
+              personName={selectedAlert?.person_name || 'No selection'}
+              personId={selectedAlert?.person_id || null}
+              tracks={personTracks}
+              alerts={alerts}
+              selectedTrackId={selectedAlert?.track_id || null}
+              onSelectTrackNode={(trk, alt) => {
+                if (alt) {
+                  setSelectedAlert(alt)
+                } else {
+                  const fallbackAlt = alerts.find((a) => a.camera_id === trk.camera_id)
+                  if (fallbackAlt) setSelectedAlert(fallbackAlt)
+                }
+              }}
+            />
+          </div>
+
+          {/* Right: Alert Details & Human Verification Panel */}
+          <AlertDetails
+            alert={selectedAlert}
+            track={selectedTrack}
+            onUpdateStatus={handleUpdateStatus}
+            isUpdating={isUpdatingStatus}
+          />
+        </div>
+      ) : (
+        <div className="flex-1 overflow-hidden">
+          <MissingPersonsView
+            currentRole={currentRole}
+            onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
+            onSelectAlertForOperation={(alert) => {
+              setSelectedAlert(alert)
+              setActiveTab('live-operations')
             }}
           />
         </div>
+      )}
 
-        {/* Right: Alert Details & Human Verification Panel */}
-        <AlertDetails
-          alert={selectedAlert}
-          track={selectedTrack}
-          onUpdateStatus={handleUpdateStatus}
-          isUpdating={isUpdatingStatus}
-        />
-      </div>
+      {/* Register Person Modal */}
+      <RegisterPersonModal
+        isOpen={isRegisterModalOpen}
+        onClose={() => setIsRegisterModalOpen(false)}
+        onRegistered={() => {
+          loadInitialData()
+        }}
+      />
     </div>
   )
 }

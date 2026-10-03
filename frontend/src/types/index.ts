@@ -8,6 +8,8 @@ export type TrackStatus = 'ACTIVE' | 'TERMINATED'
 
 export type WorkerStatus = 'STOPPED' | 'STARTING' | 'RUNNING' | 'COMPLETED' | 'ERROR'
 
+export type PersonCaseStatus = 'ACTIVE' | 'FOUND' | 'CLOSED'
+
 export interface Camera {
   id: number
   camera_id: string
@@ -17,6 +19,27 @@ export interface Camera {
   enabled: boolean
   sample_fps: number
   created_at: string | null
+}
+
+export interface PersonRecord {
+  id: number
+  person_id: string
+  name: string
+  case_id: string | null
+  age: number | null
+  gender: string | null
+  date_last_seen: string | null
+  last_known_location: string | null
+  notes: string | null
+  status: PersonCaseStatus
+  photo_paths: string[]
+  embedding_path: string | null
+  is_active: boolean
+  created_at: string | null
+  updated_at: string | null
+  total_sightings?: number
+  verified_sightings?: number
+  alerts?: AlertRecord[]
 }
 
 export interface AlertRecord {
@@ -75,8 +98,10 @@ export interface WorkerMetrics {
 }
 
 export interface WebSocketAlertMessage {
-  event: 'alert.created' | 'alert.updated' | 'pong'
+  event: 'alert.created' | 'alert.updated' | 'person.registered' | 'person.updated' | 'pong'
   alert?: AlertRecord
+  person?: PersonRecord
+  data?: Record<string, unknown>
 }
 
 export interface HealthResponse {
@@ -90,3 +115,4 @@ export interface CameraLocation {
   lng: number
   zone: string
 }
+
