@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class HistoricalService:
-    """Service orchestrating background historical video analysis jobs."""
+    """Service orchestrating background historical video analysis jobs using the canonical recognition pipeline."""
 
     def __init__(
         self,
@@ -41,11 +41,23 @@ class HistoricalService:
         alert_service: Optional[AlertService] = None,
         session_factory=None,
     ):
-        self.engine = face_engine or FaceEngine()
-        self.index = face_index or FaceIndex()
+        self._engine = face_engine
+        self._index = face_index
         self.alert_service = alert_service or get_alert_service()
         self.session_factory = session_factory or get_session_factory()
         self._active_jobs: dict[str, threading.Event] = {}
+
+    def _get_engine(self) -> FaceEngine:
+        if self._engine is not None:
+            return self._engine
+        from src.workers.worker_manager import get_worker_manager
+        return get_worker_manager()._get_engine()
+
+    def _get_index(self) -> FaceIndex:
+        if self._index is not None:
+            return self._index
+        from src.workers.worker_manager import get_worker_manager
+        return get_worker_manager()._get_index()
 
     def start_background_search(
         self,
@@ -145,6 +157,15 @@ class HistoricalService:
         start_mono = time.monotonic()
         last_progress_broadcast = start_mono
 
+        logger.info(
+            "[HistoricalJob %s] Executing SEARCH pipeline on '%s' (camera_id='%s', sample_fps=%.1f, threshold=%.2f) via Canonical FaceEngine + FAISS",
+            job_id,
+            src_path.name,
+            camera_id,
+            sample_fps,
+            threshold,
+        )
+
         try:
             while not cancel_event.is_set():
                 ret, frame = cap.read()
@@ -156,13 +177,16 @@ class HistoricalService:
                     frames_sampled += 1
                     next_sample_time = current_timestamp + sample_interval
 
-                    # SCRFD Detection + ArcFace Embedding
-                    faces: list[DetectedFace] = self.engine.detect_and_embed(frame)
+                    # Canonical Pipeline Step 1: SCRFD Detection + ArcFace Embedding
+                    engine = self._get_engine()
+                    faces: list[DetectedFace] = engine.detect_and_embed(frame)
                     faces_detected += len(faces)
 
+                    # Canonical Pipeline Step 2: FAISS Index Cosine Similarity Search
+                    index = self._get_index()
                     detection_items: list[DetectionItem] = []
                     for face_idx, face in enumerate(faces):
-                        results = self.index.search(
+                        results = index.search(
                             query_embedding=face.normalized_embedding,
                             k=1,
                             threshold=threshold,

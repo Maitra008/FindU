@@ -77,6 +77,7 @@ class CameraWorker(threading.Thread):
         camera_id: str,
         source: Union[str, int, Path],
         name: Optional[str] = None,
+        source_type: str = "file",
         sample_fps: float = DEFAULT_SAMPLE_FPS,
         threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
         iou_threshold: float = DEFAULT_IOU_THRESHOLD,
@@ -90,6 +91,7 @@ class CameraWorker(threading.Thread):
         super().__init__(name=f"CameraWorker-{camera_id}", daemon=True)
         self.camera_id = camera_id
         self.source = str(source)
+        self.source_type = source_type.upper()
         self.camera_name = name or f"Camera {camera_id}"
         self.sample_fps = max(0.1, sample_fps)
         self.threshold = threshold
@@ -164,8 +166,9 @@ class CameraWorker(threading.Thread):
         last_metric_update = start_mono
 
         logger.info(
-            "[%s] Started CameraWorker on '%s' (FPS: %.1f, Sample: %.1f FPS, Threshold: %.2f)",
+            "[%s] Started CameraWorker (%s source: '%s', FPS: %.1f, Sample: %.1f FPS, Threshold: %.2f) via Canonical FaceEngine + FAISS",
             self.camera_id,
+            self.source_type,
             self.source,
             video_fps,
             self.sample_fps,

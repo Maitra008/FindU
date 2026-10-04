@@ -109,6 +109,7 @@ class WorkerManager:
             camera_id=camera_id,
             source=source,
             name=name,
+            source_type=source_type,
             sample_fps=sample_fps,
             threshold=threshold,
             face_engine=self._get_engine(),
@@ -131,6 +132,7 @@ class WorkerManager:
                     self.add_camera_worker(
                         camera_id=cam.camera_id,
                         source=cam.source,
+                        source_type=cam.source_type if hasattr(cam, 'source_type') and cam.source_type else "file",
                         name=cam.name,
                         sample_fps=cam.sample_fps,
                     )
@@ -153,6 +155,7 @@ class WorkerManager:
             worker = self.add_camera_worker(
                 camera_id=worker.camera_id,
                 source=worker.source,
+                source_type=worker.source_type,
                 name=worker.camera_name,
                 sample_fps=worker.sample_fps,
                 threshold=worker.threshold,
