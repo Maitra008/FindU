@@ -193,9 +193,9 @@ def cancel_historical_job(
     historical_svc: HistoricalService = Depends(get_historical_service),
     current_user=require_role("ADMIN"),
 ):
-    """Cancel a running historical analysis job (ADMIN only)."""
-    cancelled = historical_svc.cancel_job(job_id)
-    if not cancelled:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Job '{job_id}' not active")
-    return {"message": f"Historical job '{job_id}' cancelled"}
+    """Cancel a running or queued historical analysis job (ADMIN only)."""
+    job = historical_svc.cancel_job(job_id)
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Historical job '{job_id}' not found")
+    return {"message": f"Historical job '{job_id}' cancelled", "job": job}
 

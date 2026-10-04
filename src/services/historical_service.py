@@ -79,13 +79,38 @@ class HistoricalService:
         thread.start()
         logger.info("Dispatched background historical search thread for job '%s'", job_id)
 
-    def cancel_job(self, job_id: str) -> bool:
-        """Cancel an ongoing background analysis job."""
+    def cancel_job(self, job_id: str) -> Optional[dict]:
+        """Cancel an ongoing, queued, or existing background analysis job."""
         if job_id in self._active_jobs:
             self._active_jobs[job_id].set()
-            logger.info("Signal sent to cancel historical job '%s'", job_id)
-            return True
-        return False
+            logger.info("Signal sent to cancel active historical job thread '%s'", job_id)
+
+        with self.session_factory() as session:
+            repo = HistoricalJobRepository(session)
+            job = repo.get_by_job_id(job_id)
+            if not job:
+                return None
+            if job.status in ("COMPLETED", "FAILED", "CANCELLED"):
+                return job.to_dict()
+
+            updated_job = repo.update_progress(
+                job_id=job_id,
+                status="CANCELLED",
+                processed_duration_sec=job.processed_duration_sec or 0.0,
+                progress_percent=job.progress_percent or 0.0,
+                frames_sampled=job.frames_sampled or 0,
+                faces_detected=job.faces_detected or 0,
+                tracks_created=job.tracks_created or 0,
+                potential_matches=job.potential_matches or 0,
+                completed=True,
+            )
+            if updated_job:
+                ws_manager.broadcast_sync({
+                    "event": "job.completed",
+                    "job": updated_job.to_dict(),
+                })
+                return updated_job.to_dict()
+            return job.to_dict()
 
     def _run_job(
         self,

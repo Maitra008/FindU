@@ -6,6 +6,7 @@ and forwards track alerts to the central AlertService.
 """
 
 import logging
+import os
 import threading
 import time
 from dataclasses import dataclass, field
@@ -21,6 +22,7 @@ from src.config import (
     DEFAULT_SAMPLE_FPS,
     DEFAULT_SIMILARITY_THRESHOLD,
     DEFAULT_TRACK_TOP_K,
+    PROJECT_ROOT,
 )
 from src.face_engine import DetectedFace, FaceEngine, get_face_engine
 from src.index import FaceIndex, MatchResult, get_face_index
@@ -129,9 +131,22 @@ class CameraWorker(threading.Thread):
         self.metrics.status = "RUNNING"
         self._stop_event.clear()
 
-        # Parse source (camera index vs video file)
-        src = int(self.source) if self.source.isdigit() else self.source
-        cap = cv2.VideoCapture(src)
+        # Parse source (USB device index vs RTSP stream vs video file path)
+        if self.source_type == "USB" or (isinstance(self.source, str) and self.source.isdigit()):
+            src_idx = int(self.source)
+            backend = cv2.CAP_DSHOW if os.name == "nt" else cv2.CAP_ANY
+            cap = cv2.VideoCapture(src_idx, backend)
+            if not cap.isOpened():
+                cap = cv2.VideoCapture(src_idx)
+        else:
+            src_str = str(self.source)
+            if not src_str.startswith("rtsp://") and not src_str.startswith("http://") and not src_str.startswith("https://"):
+                src_path = Path(src_str)
+                if not src_path.is_absolute():
+                    alt_path = PROJECT_ROOT / src_path
+                    if alt_path.exists():
+                        src_str = str(alt_path)
+            cap = cv2.VideoCapture(src_str)
 
         if not cap.isOpened():
             err = f"Failed to open video source: {self.source}"

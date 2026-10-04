@@ -142,6 +142,7 @@ def create_camera(
         worker_mgr.add_camera_worker(
             camera_id=payload.camera_id,
             source=payload.source,
+            source_type=payload.source_type,
             name=payload.name,
             sample_fps=payload.sample_fps,
         )
@@ -181,12 +182,13 @@ def update_camera(
     worker_mgr = get_worker_manager()
     if payload.enabled is False:
         worker_mgr.stop_worker(camera_id)
-    elif payload.enabled is True or any(k in updates for k in ["source", "sample_fps"]):
+    elif payload.enabled is True or any(k in updates for k in ["source", "source_type", "sample_fps"]):
         worker_mgr.stop_worker(camera_id)
         if updated.enabled:
             worker_mgr.add_camera_worker(
                 camera_id=updated.camera_id,
                 source=updated.source,
+                source_type=updated.source_type if hasattr(updated, "source_type") and updated.source_type else "file",
                 name=updated.name,
                 sample_fps=updated.sample_fps,
             )
