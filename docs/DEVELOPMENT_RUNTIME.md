@@ -1,38 +1,21 @@
-# FindU Development Runtime & Diagnostics Guide
+# FindU Development Runtime Guide
 
-This document outlines the architecture, startup procedures, ports, editor conflict prevention, and troubleshooting instructions for the FindU development environment.
-
----
-
-## 1. System Topology & Canonical Endpoints
-
-| Component | Port / Protocol | Working Directory | Command | Canonical URL |
-|---|---|---|---|---|
-| **Vite Dev Server** | `HTTP / 5173` | `./frontend` | `npm run dev` | `http://localhost:5173` |
-| **FastAPI Backend** | `HTTP / 8000` | `./` | `python -m src.main serve --host 127.0.0.1 --port 8000 --start-workers` | `http://127.0.0.1:8000` |
-| **WebSocket Stream** | `WS / 8000` | `./` | Integrated in FastAPI app | `ws://127.0.0.1:8000/ws/alerts` |
-| **SQLite Database** | `data/findu.db` | `./` | Auto-migrated on startup (`src/db/database.py`) | N/A |
+This document outlines the architecture, startup procedures, ports, and troubleshooting instructions for the FindU development environment.
 
 ---
 
-## 2. Editor / Agent File Conflict Prevention
+## 1. System Topology & Default Ports
 
-When pair-programming with autonomous agents or external tools, in-memory editor buffers (e.g. in VS Code) can silently overwrite disk files upon auto-save or tab focus. Follow these rules to prevent stale buffer reversions:
-
-1. **Do not keep stale copies of actively agent-edited files open**:
-   - Close or reload tabs for files being modified by the agent (`Header.tsx`, `App.tsx`, `CameraCommandCenter.tsx`, etc.).
-2. **Reload/reopen files after agent modifications**:
-   - In VS Code, run `File: Revert File` or close and reopen the file from disk after agent updates.
-3. **Verify disk contents before saving**:
-   - Check the physical file on disk using PowerShell (`Get-Content .\frontend\src\App.tsx`).
-4. **Verify `git diff` and `git status`**:
-   - Run `git status --short` and `git diff` to confirm the working tree reflects only the intended changes.
-5. **Verify the running browser after UI changes**:
-   - Always verify the live browser and query the raw served module over HTTP (`http://localhost:5173/src/App.tsx`).
+| Component | Port / Protocol | Working Directory | Command |
+|---|---|---|---|
+| **FastAPI Backend** | `http://127.0.0.1:8000` | Project root (`./`) | `python -m src.main serve --host 127.0.0.1 --port 8000 --start-workers` |
+| **WebSocket Stream** | `ws://127.0.0.1:8000/ws/alerts` | Project root (`./`) | Integrated in FastAPI app |
+| **Vite Dev Server** | `http://localhost:5173` | `./frontend` | `npm run dev` |
+| **SQLite Database** | `data/findu.db` | Project root (`./`) | Auto-migrated on startup (`src/db/database.py`) |
 
 ---
 
-## 3. Recommended Startup Order
+## 2. Recommended Startup Order
 
 ### Step 1: Start the Backend Server
 ```powershell
@@ -52,7 +35,7 @@ Open `http://localhost:5173` in your browser.
 
 ---
 
-## 4. Verifying Serving State & Resolving Mismatches
+## 3. Verifying Serving State & Resolving Mismatches
 
 If browser updates or new features do not appear:
 
@@ -66,9 +49,7 @@ If browser updates or new features do not appear:
    curl http://localhost:5173/src/App.tsx
    curl http://localhost:5173/src/components/Header.tsx
    ```
-3. **Verify Runtime Build Diagnostic**:
-   Open browser DevTools Console (`F12`), where `[FindU Runtime]` reports the active build ID and mode.
-4. **Check for Stale Vite / Node Processes**:
+3. **Check for Stale Vite / Node Processes**:
    ```powershell
    Get-NetTCPConnection -LocalPort 5173 | Format-Table OwningProcess, State
    Get-NetTCPConnection -LocalPort 8000 | Format-Table OwningProcess, State
@@ -77,14 +58,14 @@ If browser updates or new features do not appear:
    ```powershell
    Stop-Process -Id <PID> -Force
    ```
-5. **Hard Reload Browser**:
-   Press `Ctrl + Shift + R` (or `Ctrl + F5`) to clear browser asset caching.
+4. **Hard Reload Browser**:
+   Press `Ctrl + Shift + R` (or `Ctrl + F5`) to clear browser service workers and client-side asset caching.
 
 ---
 
-## 5. Testing & Build Verification
+## 4. Testing & Verification
 
-* **Backend Test Suite (76 tests)**:
+* **Backend Suite**:
   ```powershell
   python -m pytest -q
   ```
