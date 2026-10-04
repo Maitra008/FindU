@@ -150,7 +150,7 @@ export interface WorkerMetrics {
 }
 
 export interface WebSocketAlertMessage {
-  event: 'alert.created' | 'alert.updated' | 'person.registered' | 'person.updated' | 'job.progress' | 'job.completed' | 'pong'
+  event: 'alert.created' | 'alert.updated' | 'person.registered' | 'person.updated' | 'job.progress' | 'job.completed' | 'system.reset' | 'pong'
   alert?: AlertRecord
   person?: PersonRecord
   job?: HistoricalJobRecord

@@ -21,6 +21,7 @@ import { LoginScreen } from './components/LoginScreen'
 import { MapView } from './components/MapView'
 import { MissingPersonsView } from './components/MissingPersonsView'
 import { RegisterPersonModal } from './components/RegisterPersonModal'
+import { ResetTestEnvironmentModal } from './components/ResetTestEnvironmentModal'
 import { TrackTimeline } from './components/TrackTimeline'
 import type {
   AlertRecord,
@@ -36,6 +37,7 @@ export const App: React.FC = () => {
   const [currentRole, setCurrentRole] = useState<string | null>(() => getStoredUserInfo()?.role || null)
   const [activeTab, setActiveTab] = useState<NavigationTab>('live-operations')
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState<boolean>(false)
+  const [isResetModalOpen, setIsResetModalOpen] = useState<boolean>(false)
   const [backendConnected, setBackendConnected] = useState<boolean>(false)
   const [wsConnected, setWsConnected] = useState<boolean>(false)
   const [alerts, setAlerts] = useState<AlertRecord[]>([])
@@ -161,6 +163,9 @@ export const App: React.FC = () => {
                 ? updatedAlert
                 : current
             )
+          } else if (msg.event === 'system.reset') {
+            setSelectedAlert(null)
+            loadInitialData()
           }
         } catch (err) {
           console.error('Failed to parse WebSocket message:', err)
@@ -297,6 +302,7 @@ export const App: React.FC = () => {
         onLogout={handleLogout}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        onOpenResetModal={() => setIsResetModalOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -379,6 +385,16 @@ export const App: React.FC = () => {
         isOpen={isRegisterModalOpen}
         onClose={() => setIsRegisterModalOpen(false)}
         onRegistered={() => {
+          loadInitialData()
+        }}
+      />
+
+      {/* Admin-Only Reset Test Environment Modal */}
+      <ResetTestEnvironmentModal
+        isOpen={isResetModalOpen}
+        onClose={() => setIsResetModalOpen(false)}
+        onSuccess={() => {
+          setSelectedAlert(null)
           loadInitialData()
         }}
       />

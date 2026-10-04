@@ -403,3 +403,34 @@ export async function setWorkerSpeed(cameraId: string, speed: number): Promise<v
   await updateCamera(cameraId, { sample_fps: Math.max(0.5, Math.min(30, speed * 2.0)) })
 }
 
+export interface ResetEnvironmentResponse {
+  success: boolean
+  message: string
+  deleted: {
+    persons: number
+    alerts: number
+    tracks: number
+    historical_jobs: number
+    historical_files: number
+    reference_photos: number
+    embeddings: number
+  }
+  preserved: {
+    cameras: number
+    users: number
+    baseline_identities: number
+  }
+}
+
+export async function resetTestEnvironment(): Promise<ResetEnvironmentResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/admin/reset-test-environment`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.detail || `Failed to reset test environment: ${res.statusText}`)
+  }
+  return res.json()
+}
+

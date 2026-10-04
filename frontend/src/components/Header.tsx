@@ -5,6 +5,7 @@ import {
   LogOut,
   Play,
   RefreshCw,
+  Trash2,
   Video,
   Wifi,
   WifiOff,
@@ -25,6 +26,7 @@ interface HeaderProps {
   onLogout: () => void
   activeTab: NavigationTab
   onTabChange: (tab: NavigationTab) => void
+  onOpenResetModal?: () => void
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -46,6 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
   onLogout,
   activeTab,
   onTabChange,
+  onOpenResetModal,
 }) => {
   const cameraIds = ['C1', 'C2', 'C3', 'C4']
   const roleColor = currentRole ? (ROLE_COLORS[currentRole] ?? 'bg-slate-800 text-slate-400 border-slate-700') : ''
@@ -153,6 +156,18 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="opacity-60">·</span>
             <span className="font-mono">{currentRole}</span>
           </div>
+        )}
+
+        {/* Admin-Only Reset Test Environment Button */}
+        {currentRole === 'ADMIN' && onOpenResetModal && (
+          <button
+            onClick={onOpenResetModal}
+            className="flex items-center space-x-1 text-xs px-2.5 py-1 bg-red-950 hover:bg-red-900 text-red-300 border border-red-800/70 rounded transition cursor-pointer"
+            title="Admin-only: Reset test persons, alerts, tracks, and historical jobs"
+          >
+            <Trash2 className="w-3 h-3 text-red-400" />
+            <span className="font-semibold">Reset Test Environment</span>
+          </button>
         )}
 
         {/* Demo Action Button */}

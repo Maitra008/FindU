@@ -14,6 +14,7 @@ from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
+from src.api.routes.admin import router as admin_router
 from src.api.routes.alerts import router as alerts_router
 from src.api.routes.audit import router as audit_router
 from src.api.routes.auth import router as auth_router
@@ -110,6 +111,7 @@ def create_app(
     app.include_router(audit_router)
     app.include_router(persons_router)
     app.include_router(historical_router)
+    app.include_router(admin_router)
 
     # WebSocket Real-Time Alert Feed — JWT authenticated via ?token= query param
     @app.websocket("/ws/alerts")
