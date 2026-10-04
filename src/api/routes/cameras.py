@@ -3,10 +3,12 @@ Camera management REST API routes.
 Part 6 & Camera Command Center: JWT authentication, RBAC, CRUD, and Live Connection Testing.
 """
 
+import asyncio
 import logging
 import time
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -73,12 +75,10 @@ def list_cameras(
         if c.camera_id in worker_map:
             wm = worker_map[c.camera_id]
             cd["status"] = wm.get("status", cd.get("status", "OFFLINE"))
-            cd["stream_fps"] = wm.get("fps", cd.get("stream_fps", 30.0))
-            cd["fps"] = wm.get("fps", cd.get("stream_fps", 30.0))
+            cd["fps"] = wm.get("fps", cd.get("stream_fps", 0.0))
             cd["frames_processed"] = wm.get("frames_processed", 0)
             cd["alerts_emitted"] = wm.get("alerts_emitted", 0)
             cd["tracks_created"] = wm.get("tracks_created", 0)
-            cd["latency_ms"] = wm.get("latency_ms", 12.5 if cd["status"] == "RUNNING" else None)
         result.append(cd)
 
     return result
@@ -104,14 +104,63 @@ def get_camera(
     wm = worker_mgr.get_worker_status(camera_id)
     if wm:
         cd["status"] = wm.get("status", cd.get("status", "OFFLINE"))
-        cd["stream_fps"] = wm.get("fps", cd.get("stream_fps", 30.0))
-        cd["fps"] = wm.get("fps", cd.get("stream_fps", 30.0))
+        cd["fps"] = wm.get("fps", cd.get("stream_fps", 0.0))
         cd["frames_processed"] = wm.get("frames_processed", 0)
         cd["alerts_emitted"] = wm.get("alerts_emitted", 0)
         cd["tracks_created"] = wm.get("tracks_created", 0)
-        cd["latency_ms"] = wm.get("latency_ms", 12.5 if cd["status"] == "RUNNING" else None)
 
     return cd
+
+
+@router.get("/{camera_id}/stream")
+async def stream_camera(camera_id: str):
+    """
+    Live MJPEG stream for real-time browser preview.
+    Uses latest frame from active CameraWorker without duplicate inference.
+    """
+    worker_mgr = get_worker_manager()
+    worker = worker_mgr.workers.get(camera_id)
+    if not worker or not worker.is_running:
+        # Try auto-starting worker if registered
+        worker_mgr.start_worker(camera_id)
+        worker = worker_mgr.workers.get(camera_id)
+
+    async def frame_generator():
+        while True:
+            if not worker or not worker.is_running:
+                await asyncio.sleep(0.5)
+                continue
+            jpeg_bytes = worker.get_latest_jpeg()
+            if jpeg_bytes:
+                yield (
+                    b"--frame\r\n"
+                    b"Content-Type: image/jpeg\r\n\r\n" + jpeg_bytes + b"\r\n"
+                )
+            await asyncio.sleep(0.066)  # ~15 FPS MJPEG preview
+
+    return StreamingResponse(
+        frame_generator(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+    )
+
+
+@router.get("/{camera_id}/snapshot")
+def get_camera_snapshot(camera_id: str):
+    """Get single latest JPEG snapshot from camera worker."""
+    worker_mgr = get_worker_manager()
+    worker = worker_mgr.workers.get(camera_id)
+    if not worker:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Worker for camera '{camera_id}' not found",
+        )
+    jpeg_bytes = worker.get_latest_jpeg()
+    if not jpeg_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No frame captured yet",
+        )
+    return Response(content=jpeg_bytes, media_type="image/jpeg")
 
 
 @router.post("", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
@@ -140,18 +189,19 @@ def create_camera(
         status="OFFLINE",
     )
 
-    # Register with WorkerManager and start if enabled
+    # Register and start with WorkerManager if enabled
     if payload.enabled:
         worker_mgr = get_worker_manager()
+        is_file = (payload.source_type or "").lower() == "file"
         worker_mgr.add_camera_worker(
             camera_id=payload.camera_id,
             source=payload.source,
             source_type=payload.source_type,
             name=payload.name,
             sample_fps=payload.sample_fps,
-            loop_video=True if (payload.source_type and payload.source_type.lower() == "file") else False,
-            auto_start=True,
+            loop_video=is_file,
         )
+        worker_mgr.start_worker(payload.camera_id)
 
     # Audit log
     get_audit_service().log(
@@ -188,19 +238,20 @@ def update_camera(
     worker_mgr = get_worker_manager()
     if payload.enabled is False:
         worker_mgr.stop_worker(camera_id)
-    elif payload.enabled is True or any(k in updates for k in ["source", "source_type", "sample_fps"]):
+    elif payload.enabled is True or any(k in updates for k in ["source", "sample_fps"]):
         worker_mgr.stop_worker(camera_id)
         if updated.enabled:
             st = getattr(updated, "source_type", "file") or "file"
+            is_file = st.lower() == "file"
             worker_mgr.add_camera_worker(
                 camera_id=updated.camera_id,
                 source=updated.source,
                 source_type=st,
                 name=updated.name,
                 sample_fps=updated.sample_fps,
-                loop_video=True if (st and st.lower() == "file") else False,
-                auto_start=True,
+                loop_video=is_file,
             )
+            worker_mgr.start_worker(updated.camera_id)
 
     get_audit_service().log(
         event="camera.updated",

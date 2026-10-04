@@ -93,7 +93,6 @@ class WorkerManager:
         sample_fps: float = DEFAULT_SAMPLE_FPS,
         threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
         loop_video: bool = False,
-        auto_start: bool = False,
     ) -> CameraWorker:
         """
         Register a new camera worker or replace an existing stopped worker.
@@ -115,12 +114,16 @@ class WorkerManager:
             loop_video=loop_video,
         )
         self.workers[camera_id] = worker
-        if auto_start:
-            worker.start()
-            logger.info("Auto-started CameraWorker '%s' (%s).", camera_id, source_type)
         return worker
 
-    def load_cameras_from_db(self, enabled_only: bool = True) -> int:
+    def set_worker_playback_speed(self, camera_id: str, speed: float) -> bool:
+        """Update playback speed on an active worker."""
+        if camera_id in self.workers:
+            self.workers[camera_id].set_playback_speed(speed)
+            return True
+        return False
+
+    def load_cameras_from_db(self, enabled_only: bool = True, auto_start: bool = True) -> int:
         """
         Scan database for configured cameras (e.g. C1..C4) and initialize workers.
         """
@@ -129,16 +132,20 @@ class WorkerManager:
             cameras: List[Camera] = repo.get_all(enabled_only=enabled_only)
             for cam in cameras:
                 st = cam.source_type if hasattr(cam, 'source_type') and cam.source_type else "file"
-                self.add_camera_worker(
-                    camera_id=cam.camera_id,
-                    source=cam.source,
-                    source_type=st,
-                    name=cam.name,
-                    sample_fps=cam.sample_fps,
-                    loop_video=True if (st and st.lower() == "file") else False,
-                    auto_start=False,
-                )
-            logger.info("Loaded %d camera workers from database.", len(cameras))
+                is_file = st.lower() == "file"
+                if cam.camera_id not in self.workers:
+                    self.add_camera_worker(
+                        camera_id=cam.camera_id,
+                        source=cam.source,
+                        source_type=st,
+                        name=cam.name,
+                        sample_fps=cam.sample_fps,
+                        loop_video=is_file,
+                    )
+                if auto_start and cam.enabled:
+                    self.start_worker(cam.camera_id)
+
+            logger.info("Loaded and initialized %d camera workers from database.", len(cameras))
             return len(cameras)
 
     def start_worker(self, camera_id: str) -> bool:
@@ -153,7 +160,7 @@ class WorkerManager:
             return True
 
         # Re-instantiate worker thread if already finished or stopped
-        if not worker.is_alive():
+        if not worker.is_alive() and (worker.metrics.frames_read > 0 or worker.metrics.status != "RUNNING"):
             worker = self.add_camera_worker(
                 camera_id=worker.camera_id,
                 source=worker.source,
@@ -162,13 +169,25 @@ class WorkerManager:
                 sample_fps=worker.sample_fps,
                 threshold=worker.threshold,
                 loop_video=worker.loop_video,
-                auto_start=True,
             )
-            return True
 
-        worker.start()
-        logger.info("Started CameraWorker thread '%s'.", camera_id)
-        return True
+        try:
+            worker.start()
+            logger.info("Started CameraWorker thread '%s'.", camera_id)
+            return True
+        except RuntimeError:
+            worker = self.add_camera_worker(
+                camera_id=worker.camera_id,
+                source=worker.source,
+                source_type=worker.source_type,
+                name=worker.camera_name,
+                sample_fps=worker.sample_fps,
+                threshold=worker.threshold,
+                loop_video=worker.loop_video,
+            )
+            worker.start()
+            logger.info("Recreated and started CameraWorker thread '%s'.", camera_id)
+            return True
 
     def stop_worker(self, camera_id: str, timeout: float = 5.0) -> bool:
         """Stop an individual camera worker thread."""

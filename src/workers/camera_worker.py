@@ -6,7 +6,6 @@ and forwards track alerts to the central AlertService.
 """
 
 import logging
-import os
 import threading
 import time
 from dataclasses import dataclass, field
@@ -105,7 +104,10 @@ class CameraWorker(threading.Thread):
         self.index = face_index or get_face_index()
         self.alert_service = alert_service or get_alert_service()
 
-        # Thread Control
+        # Thread & Playback Control
+        self.playback_speed: float = 1.0
+        self._latest_jpeg: Optional[bytes] = None
+        self._frame_lock = threading.Lock()
         self._stop_event = threading.Event()
         self.metrics = CameraWorkerMetrics(
             camera_id=self.camera_id,
@@ -114,6 +116,16 @@ class CameraWorker(threading.Thread):
             status="STOPPED",
         )
         self.tracker: Optional[FaceTracker] = None
+
+    def set_playback_speed(self, speed: float) -> None:
+        """Set replay playback speed multiplier (e.g. 1.0 or 2.0)."""
+        self.playback_speed = max(0.25, min(8.0, speed))
+        logger.info("[%s] Playback speed updated to %.2fx", self.camera_id, self.playback_speed)
+
+    def get_latest_jpeg(self) -> Optional[bytes]:
+        """Return the latest frame encoded as JPEG bytes for MJPEG streaming."""
+        with self._frame_lock:
+            return self._latest_jpeg
 
     def stop(self, timeout: float = 5.0) -> None:
         """Signal worker to stop and wait for termination."""
@@ -131,22 +143,18 @@ class CameraWorker(threading.Thread):
         self.metrics.status = "RUNNING"
         self._stop_event.clear()
 
-        # Parse source (USB device index vs RTSP stream vs video file path)
-        if (self.source_type and self.source_type.upper() == "USB") or (isinstance(self.source, str) and self.source.isdigit()):
+        # Parse source (USB index vs RTSP stream vs video file)
+        if self.source.isdigit():
             src_idx = int(self.source)
-            backend = cv2.CAP_DSHOW if os.name == "nt" else cv2.CAP_ANY
-            cap = cv2.VideoCapture(src_idx, backend)
-            if not cap.isOpened():
-                cap = cv2.VideoCapture(src_idx)
+            cap = cv2.VideoCapture(src_idx, cv2.CAP_DSHOW) if hasattr(cv2, "CAP_DSHOW") else cv2.VideoCapture(src_idx)
         else:
-            src_str = str(self.source)
-            if not src_str.startswith("rtsp://") and not src_str.startswith("http://") and not src_str.startswith("https://"):
-                src_path = Path(src_str)
-                if not src_path.is_absolute():
-                    alt_path = PROJECT_ROOT / src_path
-                    if alt_path.exists():
-                        src_str = str(alt_path)
-            cap = cv2.VideoCapture(src_str)
+            src_path = Path(self.source)
+            if not src_path.is_absolute():
+                src_path = PROJECT_ROOT / self.source
+            if src_path.exists():
+                cap = cv2.VideoCapture(str(src_path))
+            else:
+                cap = cv2.VideoCapture(self.source)
 
         if not cap.isOpened():
             err = f"Failed to open video source: {self.source}"
@@ -170,6 +178,7 @@ class CameraWorker(threading.Thread):
         frame_idx = 0
         start_mono = time.monotonic()
         last_metric_update = start_mono
+        is_file_source = self.source_type == "FILE" or self.loop_video
 
         logger.info(
             "[%s] Started CameraWorker (%s source: '%s', FPS: %.1f, Sample: %.1f FPS, Threshold: %.2f) via Canonical FaceEngine + FAISS",
@@ -183,22 +192,28 @@ class CameraWorker(threading.Thread):
 
         try:
             while not self._stop_event.is_set():
+                frame_start_time = time.monotonic()
                 ret, frame = cap.read()
                 if not ret or frame is None:
                     if self.loop_video and not self._stop_event.is_set():
                         cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                        ret, frame = cap.read()
-                        if not ret or frame is None:
-                            logger.info("[%s] Video stream reached end.", self.camera_id)
-                            self.metrics.status = "COMPLETED"
-                            break
+                        frame_idx = 0
+                        continue
                     else:
                         logger.info("[%s] Video stream ended.", self.camera_id)
                         self.metrics.status = "COMPLETED"
                         break
 
-                if self.source_type and self.source_type.lower() == "file":
-                    time.sleep(1.0 / video_fps)
+                # Store latest JPEG for browser streaming preview
+                try:
+                    encode_success, buffer = cv2.imencode(
+                        ".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 75]
+                    )
+                    if encode_success:
+                        with self._frame_lock:
+                            self._latest_jpeg = buffer.tobytes()
+                except Exception:
+                    pass
 
                 self.metrics.frames_read += 1
                 current_timestamp = frame_idx / video_fps
@@ -219,6 +234,14 @@ class CameraWorker(threading.Thread):
                     elapsed = max(0.01, now - start_mono)
                     self.metrics.fps = self.metrics.frames_read / elapsed
                     last_metric_update = now
+
+                # Real-time pacing for file playback
+                if is_file_source and not self._stop_event.is_set():
+                    target_delay = (1.0 / max(1.0, video_fps * self.playback_speed))
+                    proc_time = time.monotonic() - frame_start_time
+                    sleep_time = target_delay - proc_time
+                    if sleep_time > 0.001:
+                        time.sleep(sleep_time)
 
         except Exception as e:
             logger.exception("[%s] Error during camera worker execution: %s", self.camera_id, e)

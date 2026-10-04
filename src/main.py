@@ -193,20 +193,14 @@ def handle_evaluate(args: argparse.Namespace, config: RecognitionConfig) -> int:
 def handle_serve(args: argparse.Namespace, config: RecognitionConfig) -> int:
     """Handle FastAPI server startup."""
     import uvicorn
-    from src.db.database import init_db
-    from src.workers.worker_manager import get_worker_manager
-
-    print("Initializing database...")
-    init_db(seed_defaults=True)
-
-    if getattr(args, "start_workers", False):
-        print("Starting camera workers...")
-        worker_mgr = get_worker_manager()
-        worker_mgr.load_cameras_from_db(enabled_only=True)
-        worker_mgr.start_all()
+    from src.api.app import create_app
 
     print(f"Starting API server on http://{args.host}:{args.port}")
-    uvicorn.run("src.api.app:app", host=args.host, port=args.port, reload=False, log_level="info")
+    app_instance = create_app(
+        init_database=True,
+        load_workers=getattr(args, "start_workers", True),
+    )
+    uvicorn.run(app_instance, host=args.host, port=args.port, reload=False, log_level="info")
     return 0
 
 

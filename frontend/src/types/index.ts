@@ -26,6 +26,7 @@ export interface Camera {
   enabled: boolean
   sample_fps: number
   status?: CameraStatus | string
+  fps?: number
   stream_fps?: number
   ai_fps?: number
   latency_ms?: number

@@ -5,11 +5,16 @@ Part 6: JWT authentication + role-based access control.
 
 from typing import Any, Dict, List
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 
 from src.auth.dependencies import get_current_user, require_role
 from src.workers.worker_manager import WorkerManager, get_worker_manager
 
 router = APIRouter(prefix="/api/workers", tags=["Workers"])
+
+
+class WorkerSpeedSchema(BaseModel):
+    speed: float = Field(1.0, ge=0.25, le=8.0)
 
 
 @router.get("/status", response_model=List[Dict[str, Any]])
@@ -87,3 +92,19 @@ def stop_worker(
         )
     return {"message": f"Worker '{camera_id}' stopped"}
 
+
+@router.post("/{camera_id}/speed", response_model=Dict[str, Any])
+def set_worker_speed(
+    camera_id: str,
+    payload: WorkerSpeedSchema,
+    worker_mgr: WorkerManager = Depends(get_worker_manager),
+    current_user=require_role("ADMIN", "POLICE"),
+):
+    """Set playback speed on a camera worker (1.0x, 2.0x, etc.)."""
+    success = worker_mgr.set_worker_playback_speed(camera_id, payload.speed)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Worker '{camera_id}' not active or not found",
+        )
+    return {"message": f"Worker '{camera_id}' playback speed set to {payload.speed}x", "speed": payload.speed}

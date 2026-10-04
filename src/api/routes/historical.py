@@ -96,25 +96,25 @@ async def upload_historical_footage(
     duration_sec = total_frames / fps if fps > 0 else 0.0
     cap.release()
 
-    # Create HistoricalJob record
-    job_repo = HistoricalJobRepository(db)
-    job = job_repo.create(
-        job_id=job_id,
-        camera_id=camera_id,
-        file_path=rel_path,
-        sample_fps=sample_fps,
-        total_duration_sec=duration_sec,
-    )
-
-    get_audit_service().log(
-        event="historical.uploaded",
-        actor_username=current_user.username,
-        resource_type="historical_job",
-        resource_id=job_id,
-        detail={"camera_id": camera_id, "mode": mode, "filename": file.filename},
-    )
-
     if mode == "search":
+        # Create HistoricalJob record for background batch search
+        job_repo = HistoricalJobRepository(db)
+        job = job_repo.create(
+            job_id=job_id,
+            camera_id=camera_id,
+            file_path=rel_path,
+            sample_fps=sample_fps,
+            total_duration_sec=duration_sec,
+        )
+
+        get_audit_service().log(
+            event="historical.uploaded",
+            actor_username=current_user.username,
+            resource_type="historical_job",
+            resource_id=job_id,
+            detail={"camera_id": camera_id, "mode": "search", "filename": file.filename},
+        )
+
         # Launch background search thread
         historical_svc.start_background_search(
             job_id=job_id,
@@ -128,7 +128,7 @@ async def upload_historical_footage(
             "message": f"Historical search job '{job_id}' dispatched in background",
         }
     else:
-        # Replay-as-Camera: register camera and launch worker
+        # Replay-as-Camera: register camera directly and launch worker without creating a search job
         cam_repo = CameraRepository(db)
         cam = cam_repo.create_or_update(
             camera_id=camera_id,
@@ -152,10 +152,17 @@ async def upload_historical_footage(
         )
         worker_mgr.start_worker(camera_id)
 
+        get_audit_service().log(
+            event="historical.uploaded",
+            actor_username=current_user.username,
+            resource_type="camera",
+            resource_id=camera_id,
+            detail={"camera_id": camera_id, "mode": "replay", "filename": file.filename},
+        )
+
         return {
             "mode": "replay",
             "camera": cam.to_dict(),
-            "job": job.to_dict(),
             "message": f"Camera '{camera_id}' registered and replay started successfully",
         }
 
@@ -193,9 +200,8 @@ def cancel_historical_job(
     historical_svc: HistoricalService = Depends(get_historical_service),
     current_user=require_role("ADMIN"),
 ):
-    """Cancel a running or queued historical analysis job (ADMIN only)."""
-    job = historical_svc.cancel_job(job_id)
-    if not job:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Historical job '{job_id}' not found")
-    return {"message": f"Historical job '{job_id}' cancelled", "job": job}
-
+    """Cancel a running historical analysis job (ADMIN only)."""
+    cancelled = historical_svc.cancel_job(job_id)
+    if not cancelled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Job '{job_id}' not found")
+    return {"message": f"Historical job '{job_id}' cancelled"}

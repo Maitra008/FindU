@@ -58,6 +58,31 @@ class HistoricalService:
             return self._index
         return get_face_index()
 
+    def recover_stale_jobs(self) -> int:
+        """Scan DB on startup and mark unfinalized historical jobs as FAILED due to restart."""
+        with self.session_factory() as session:
+            repo = HistoricalJobRepository(session)
+            jobs = repo.get_all(limit=500)
+            count = 0
+            for j in jobs:
+                if j.status in ("PROCESSING", "QUEUED") and j.job_id not in self._active_jobs:
+                    repo.update_progress(
+                        job_id=j.job_id,
+                        status="FAILED",
+                        processed_duration_sec=j.processed_duration_sec,
+                        progress_percent=j.progress_percent,
+                        frames_sampled=j.frames_sampled,
+                        faces_detected=j.faces_detected,
+                        tracks_created=j.tracks_created,
+                        potential_matches=j.potential_matches,
+                        error_message="Server restarted before job completed",
+                        completed=True,
+                    )
+                    count += 1
+            if count > 0:
+                logger.info("Recovered %d stale historical jobs from previous session.", count)
+            return count
+
     def start_background_search(
         self,
         job_id: str,
@@ -79,38 +104,41 @@ class HistoricalService:
         thread.start()
         logger.info("Dispatched background historical search thread for job '%s'", job_id)
 
-    def cancel_job(self, job_id: str) -> Optional[dict]:
-        """Cancel an ongoing, queued, or existing background analysis job."""
+    def cancel_job(self, job_id: str) -> bool:
+        """Cancel an ongoing background analysis job with DB authoritative persistence."""
+        cancelled = False
         if job_id in self._active_jobs:
             self._active_jobs[job_id].set()
-            logger.info("Signal sent to cancel active historical job thread '%s'", job_id)
+            cancelled = True
+            logger.info("Signal sent to cancel active historical thread '%s'", job_id)
 
+        # Ensure DB record is marked CANCELLED immediately if not already finalized
         with self.session_factory() as session:
             repo = HistoricalJobRepository(session)
             job = repo.get_by_job_id(job_id)
-            if not job:
-                return None
-            if job.status in ("COMPLETED", "FAILED", "CANCELLED"):
-                return job.to_dict()
+            if job and job.status in ("PROCESSING", "QUEUED"):
+                updated = repo.update_progress(
+                    job_id=job_id,
+                    status="CANCELLED",
+                    processed_duration_sec=job.processed_duration_sec,
+                    progress_percent=job.progress_percent,
+                    frames_sampled=job.frames_sampled,
+                    faces_detected=job.faces_detected,
+                    tracks_created=job.tracks_created,
+                    potential_matches=job.potential_matches,
+                    completed=True,
+                )
+                if updated:
+                    ws_manager.broadcast_sync({
+                        "event": "job.completed",
+                        "job": updated.to_dict(),
+                    })
+                cancelled = True
+            elif job:
+                # Job exists but is already terminal
+                cancelled = True
 
-            updated_job = repo.update_progress(
-                job_id=job_id,
-                status="CANCELLED",
-                processed_duration_sec=job.processed_duration_sec or 0.0,
-                progress_percent=job.progress_percent or 0.0,
-                frames_sampled=job.frames_sampled or 0,
-                faces_detected=job.faces_detected or 0,
-                tracks_created=job.tracks_created or 0,
-                potential_matches=job.potential_matches or 0,
-                completed=True,
-            )
-            if updated_job:
-                ws_manager.broadcast_sync({
-                    "event": "job.completed",
-                    "job": updated_job.to_dict(),
-                })
-                return updated_job.to_dict()
-            return job.to_dict()
+        return cancelled
 
     def _run_job(
         self,

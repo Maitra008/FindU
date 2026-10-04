@@ -27,6 +27,7 @@ from src.api.routes.workers import router as workers_router
 from src.api.websocket import ws_manager
 from src.auth.dependencies import get_ws_user
 from src.db.database import get_db, get_engine, init_db
+from src.services.historical_service import get_historical_service
 from src.workers.worker_manager import get_worker_manager
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,12 @@ def create_app(
         if init_database:
             engine = get_engine(database_url)
             init_db(engine=engine, seed_defaults=True)
+
+        # Recover stale historical jobs
+        try:
+            get_historical_service().recover_stale_jobs()
+        except Exception as e:
+            logger.warning("Could not recover stale jobs on startup: %s", e)
 
         worker_mgr = get_worker_manager()
         if load_workers:
