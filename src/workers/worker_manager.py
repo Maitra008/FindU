@@ -79,6 +79,14 @@ class WorkerManager:
                 npz_file=npz_path,
             )
 
+        # Persist updated FAISS index and metadata to disk so dynamic registrations survive server restarts
+        try:
+            index.save(INDEX_PATH, METADATA_PATH)
+            logger.info("Persisted updated FaceIndex (%d identities) to %s and %s", index.total_identities, INDEX_PATH, METADATA_PATH)
+        except Exception as e:
+            logger.error("Failed to persist updated FaceIndex to disk: %s", e)
+            raise
+
         # Propagate updated index reference to all camera workers
         for worker in self.workers.values():
             worker.index = index
