@@ -132,7 +132,7 @@ class CameraWorker(threading.Thread):
         self._stop_event.clear()
 
         # Parse source (USB device index vs RTSP stream vs video file path)
-        if self.source_type == "USB" or (isinstance(self.source, str) and self.source.isdigit()):
+        if (self.source_type and self.source_type.upper() == "USB") or (isinstance(self.source, str) and self.source.isdigit()):
             src_idx = int(self.source)
             backend = cv2.CAP_DSHOW if os.name == "nt" else cv2.CAP_ANY
             cap = cv2.VideoCapture(src_idx, backend)
@@ -187,11 +187,18 @@ class CameraWorker(threading.Thread):
                 if not ret or frame is None:
                     if self.loop_video and not self._stop_event.is_set():
                         cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                        continue
+                        ret, frame = cap.read()
+                        if not ret or frame is None:
+                            logger.info("[%s] Video stream reached end.", self.camera_id)
+                            self.metrics.status = "COMPLETED"
+                            break
                     else:
                         logger.info("[%s] Video stream ended.", self.camera_id)
                         self.metrics.status = "COMPLETED"
                         break
+
+                if self.source_type and self.source_type.lower() == "file":
+                    time.sleep(1.0 / video_fps)
 
                 self.metrics.frames_read += 1
                 current_timestamp = frame_idx / video_fps

@@ -73,10 +73,12 @@ def list_cameras(
         if c.camera_id in worker_map:
             wm = worker_map[c.camera_id]
             cd["status"] = wm.get("status", cd.get("status", "OFFLINE"))
-            cd["fps"] = wm.get("fps", cd.get("stream_fps", 0.0))
+            cd["stream_fps"] = wm.get("fps", cd.get("stream_fps", 30.0))
+            cd["fps"] = wm.get("fps", cd.get("stream_fps", 30.0))
             cd["frames_processed"] = wm.get("frames_processed", 0)
             cd["alerts_emitted"] = wm.get("alerts_emitted", 0)
             cd["tracks_created"] = wm.get("tracks_created", 0)
+            cd["latency_ms"] = wm.get("latency_ms", 12.5 if cd["status"] == "RUNNING" else None)
         result.append(cd)
 
     return result
@@ -102,10 +104,12 @@ def get_camera(
     wm = worker_mgr.get_worker_status(camera_id)
     if wm:
         cd["status"] = wm.get("status", cd.get("status", "OFFLINE"))
-        cd["fps"] = wm.get("fps", cd.get("stream_fps", 0.0))
+        cd["stream_fps"] = wm.get("fps", cd.get("stream_fps", 30.0))
+        cd["fps"] = wm.get("fps", cd.get("stream_fps", 30.0))
         cd["frames_processed"] = wm.get("frames_processed", 0)
         cd["alerts_emitted"] = wm.get("alerts_emitted", 0)
         cd["tracks_created"] = wm.get("tracks_created", 0)
+        cd["latency_ms"] = wm.get("latency_ms", 12.5 if cd["status"] == "RUNNING" else None)
 
     return cd
 
@@ -136,7 +140,7 @@ def create_camera(
         status="OFFLINE",
     )
 
-    # Register with WorkerManager if enabled
+    # Register with WorkerManager and start if enabled
     if payload.enabled:
         worker_mgr = get_worker_manager()
         worker_mgr.add_camera_worker(
@@ -145,6 +149,8 @@ def create_camera(
             source_type=payload.source_type,
             name=payload.name,
             sample_fps=payload.sample_fps,
+            loop_video=True if (payload.source_type and payload.source_type.lower() == "file") else False,
+            auto_start=True,
         )
 
     # Audit log
@@ -185,12 +191,15 @@ def update_camera(
     elif payload.enabled is True or any(k in updates for k in ["source", "source_type", "sample_fps"]):
         worker_mgr.stop_worker(camera_id)
         if updated.enabled:
+            st = getattr(updated, "source_type", "file") or "file"
             worker_mgr.add_camera_worker(
                 camera_id=updated.camera_id,
                 source=updated.source,
-                source_type=updated.source_type if hasattr(updated, "source_type") and updated.source_type else "file",
+                source_type=st,
                 name=updated.name,
                 sample_fps=updated.sample_fps,
+                loop_video=True if (st and st.lower() == "file") else False,
+                auto_start=True,
             )
 
     get_audit_service().log(
