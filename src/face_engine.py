@@ -162,3 +162,24 @@ class FaceEngine:
         except Exception as e:
             logger.error("Exception loading image '%s': %s", path, e)
             return None
+
+
+_face_engine_instance: Optional[FaceEngine] = None
+
+
+def get_face_engine(
+    model_name: str = "buffalo_l",
+    providers: Optional[List[str]] = None,
+    det_size: Tuple[int, int] = (640, 640),
+    det_thresh: float = 0.50,
+) -> FaceEngine:
+    """Singleton getter for the centralized FaceEngine."""
+    global _face_engine_instance
+    if _face_engine_instance is None:
+        _face_engine_instance = FaceEngine(
+            model_name=model_name,
+            providers=providers,
+            det_size=det_size,
+            det_thresh=det_thresh,
+        )
+    return _face_engine_instance

@@ -18,8 +18,8 @@ from src.config import (
 from src.db.database import get_session_factory
 from src.db.models import Camera
 from src.db.repositories.cameras import CameraRepository
-from src.face_engine import FaceEngine
-from src.index import FaceIndex
+from src.face_engine import FaceEngine, get_face_engine
+from src.index import FaceIndex, get_face_index
 from src.services.alert_service import AlertService, get_alert_service
 from src.workers.camera_worker import CameraWorker
 
@@ -47,16 +47,12 @@ class WorkerManager:
 
     def _get_engine(self) -> FaceEngine:
         if self.engine is None:
-            self.engine = FaceEngine()
+            self.engine = get_face_engine()
         return self.engine
 
     def _get_index(self) -> FaceIndex:
         if self.index is None:
-            self.index = FaceIndex()
-            if INDEX_PATH.exists() and METADATA_PATH.exists():
-                self.index.load(INDEX_PATH, METADATA_PATH)
-            elif EMBEDDINGS_DIR.exists():
-                self.index.build_from_directory(EMBEDDINGS_DIR)
+            self.index = get_face_index()
         return self.index
 
     def register_face_identity(

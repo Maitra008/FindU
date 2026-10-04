@@ -23,8 +23,9 @@ from src.config import (
 )
 from src.db.database import get_session_factory
 from src.db.repositories.historical import HistoricalJobRepository
-from src.face_engine import DetectedFace, FaceEngine
-from src.index import FaceIndex, MatchResult
+from src.face_engine import DetectedFace, FaceEngine, get_face_engine
+from src.index import FaceIndex, MatchResult, get_face_index
+from src.pipeline import FrameRecognitionResult, recognize_frame
 from src.services.alert_service import AlertService, get_alert_service
 from src.tracker import DetectionItem, FaceTracker
 
@@ -50,14 +51,12 @@ class HistoricalService:
     def _get_engine(self) -> FaceEngine:
         if self._engine is not None:
             return self._engine
-        from src.workers.worker_manager import get_worker_manager
-        return get_worker_manager()._get_engine()
+        return get_face_engine()
 
     def _get_index(self) -> FaceIndex:
         if self._index is not None:
             return self._index
-        from src.workers.worker_manager import get_worker_manager
-        return get_worker_manager()._get_index()
+        return get_face_index()
 
     def start_background_search(
         self,
@@ -177,56 +176,21 @@ class HistoricalService:
                     frames_sampled += 1
                     next_sample_time = current_timestamp + sample_interval
 
-                    # Canonical Pipeline Step 1: SCRFD Detection + ArcFace Embedding
-                    engine = self._get_engine()
-                    faces: list[DetectedFace] = engine.detect_and_embed(frame)
-                    faces_detected += len(faces)
-
-                    # Canonical Pipeline Step 2: FAISS Index Cosine Similarity Search
-                    index = self._get_index()
-                    detection_items: list[DetectionItem] = []
-                    for face_idx, face in enumerate(faces):
-                        results = index.search(
-                            query_embedding=face.normalized_embedding,
-                            k=1,
-                            threshold=threshold,
-                        )
-                        match = results[0] if results else MatchResult(None, "Unknown", 0.0, False, -1)
-                        is_match = match.is_match and (match.person_id is not None)
-                        if is_match:
-                            potential_matches += 1
-
-                        detection_items.append(
-                            DetectionItem(
-                                bbox=face.bbox,
-                                confidence=face.confidence,
-                                similarity=match.similarity,
-                                person_id=match.person_id if is_match else None,
-                                person_name=match.name if is_match else "Unknown",
-                                is_match=is_match,
-                                embedding=face.normalized_embedding,
-                                face_idx=face_idx,
-                            )
-                        )
-
-                    # Update temporal tracker
-                    assigned_tracks, new_alerts = tracker.update(
-                        detections=detection_items,
+                    # Canonical Recognition Pipeline (SCRFD -> ArcFace -> FAISS -> FaceTracker -> AlertService)
+                    res: FrameRecognitionResult = recognize_frame(
+                        frame=frame,
                         frame_idx=frame_idx,
                         timestamp_sec=current_timestamp,
+                        camera_id=f"{camera_id}_historical",
+                        tracker=tracker,
+                        face_engine=self._get_engine(),
+                        face_index=self._get_index(),
+                        alert_service=self.alert_service,
                         threshold=threshold,
-                        source_name=f"{camera_id}_historical",
+                        dispatch_alerts=True,
                     )
-
-                    # Persist alerts to DB
-                    for alert in new_alerts:
-                        try:
-                            self.alert_service.create_alert_from_track_alert(
-                                camera_id=camera_id,
-                                track_alert=alert,
-                            )
-                        except Exception as e:
-                            logger.error("[HistoricalJob %s] Alert persist error: %s", job_id, e)
+                    faces_detected += res.faces_detected
+                    potential_matches += res.potential_matches
 
                 frame_idx += 1
 
@@ -315,4 +279,3 @@ def get_historical_service() -> HistoricalService:
     if _historical_service_instance is None:
         _historical_service_instance = HistoricalService()
     return _historical_service_instance
-

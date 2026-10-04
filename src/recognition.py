@@ -22,8 +22,8 @@ from src.config import (
     DEFAULT_SIMILARITY_THRESHOLD,
     DEFAULT_TRACK_TOP_K,
 )
-from src.face_engine import DetectedFace, FaceEngine, normalize_embedding
-from src.index import FaceIndex, MatchResult
+from src.face_engine import DetectedFace, FaceEngine, get_face_engine, normalize_embedding
+from src.index import FaceIndex, MatchResult, get_face_index
 from src.tracker import DetectionItem, FaceTracker, Track, TrackAlert
 
 logger = logging.getLogger(__name__)
@@ -116,8 +116,8 @@ class VideoRecognizer:
             cooldown_seconds: Deprecated / backward-compatible parameter (now handled via IoU tracking).
             verbose_debug: Enable detailed frame/face debugging console output.
         """
-        self.engine = face_engine or FaceEngine()
-        self.index = face_index or FaceIndex()
+        self.engine = face_engine or get_face_engine()
+        self.index = face_index or get_face_index()
         self.threshold = threshold
         self.sample_fps = sample_fps
         self.iou_threshold = iou_threshold

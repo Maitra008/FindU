@@ -12,7 +12,7 @@ from typing import List, Optional, Union
 
 import numpy as np
 
-from src.face_engine import FaceEngine, normalize_embedding
+from src.face_engine import FaceEngine, get_face_engine, normalize_embedding
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ class FaceRegistrar:
         Args:
             face_engine: Existing FaceEngine instance, or creates a new one if None.
         """
-        self.engine = face_engine or FaceEngine()
+        self.engine = face_engine or get_face_engine()
 
     def register_person(
         self,

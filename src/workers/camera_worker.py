@@ -21,12 +21,10 @@ from src.config import (
     DEFAULT_SAMPLE_FPS,
     DEFAULT_SIMILARITY_THRESHOLD,
     DEFAULT_TRACK_TOP_K,
-    EMBEDDINGS_DIR,
-    INDEX_PATH,
-    METADATA_PATH,
 )
-from src.face_engine import DetectedFace, FaceEngine
-from src.index import FaceIndex, MatchResult
+from src.face_engine import DetectedFace, FaceEngine, get_face_engine
+from src.index import FaceIndex, MatchResult, get_face_index
+from src.pipeline import FrameRecognitionResult, recognize_frame
 from src.services.alert_service import AlertService, get_alert_service
 from src.tracker import DetectionItem, FaceTracker, Track, TrackAlert
 
@@ -69,7 +67,7 @@ class CameraWorkerMetrics:
 class CameraWorker(threading.Thread):
     """
     Dedicated worker thread for an individual camera stream.
-    Reuses the Part 3 Recognition and Tracking Core.
+    Executes the canonical recognition pipeline.
     """
 
     def __init__(
@@ -100,16 +98,9 @@ class CameraWorker(threading.Thread):
         self.track_top_k = track_top_k
         self.loop_video = loop_video
 
-        # Core Engines
-        self.engine = face_engine or FaceEngine()
-        if face_index is not None:
-            self.index = face_index
-        else:
-            self.index = FaceIndex()
-            if INDEX_PATH.exists() and METADATA_PATH.exists():
-                self.index.load(INDEX_PATH, METADATA_PATH)
-            elif EMBEDDINGS_DIR.exists():
-                self.index.build_from_directory(EMBEDDINGS_DIR)
+        # Canonical Singletons
+        self.engine = face_engine or get_face_engine()
+        self.index = face_index or get_face_index()
         self.alert_service = alert_service or get_alert_service()
 
         # Thread Control
@@ -241,58 +232,31 @@ class CameraWorker(threading.Thread):
 
     def _process_single_frame(self, frame: np.ndarray, frame_idx: int, current_timestamp: float) -> None:
         """
-        Execute Part 3 pipeline for one sampled frame:
+        Execute the canonical recognition pipeline for one sampled frame:
         SCRFD detection -> ArcFace embedding -> FAISS search -> FaceTracker -> AlertService.
         """
-        faces: List[DetectedFace] = self.engine.detect_and_embed(frame)
-        self.metrics.faces_detected += len(faces)
+        if self.tracker is None:
+            return
 
-        detection_items: List[DetectionItem] = []
-        for face_idx, face in enumerate(faces):
-            search_results = self.index.search(
-                query_embedding=face.normalized_embedding,
-                k=1,
-                threshold=self.threshold,
-            )
-            match = search_results[0] if search_results else MatchResult(None, "Unknown", 0.0, False, -1)
-            is_match = match.is_match and (match.person_id is not None)
-
-            det_item = DetectionItem(
-                bbox=face.bbox,
-                confidence=face.confidence,
-                similarity=match.similarity,
-                person_id=match.person_id if is_match else None,
-                person_name=match.name if is_match else "Unknown",
-                is_match=is_match,
-                embedding=face.normalized_embedding,
-                face_idx=face_idx,
-            )
-            detection_items.append(det_item)
-
-        # Update temporal tracker
-        assigned_tracks, new_alerts = self.tracker.update(
-            detections=detection_items,
+        result: FrameRecognitionResult = recognize_frame(
+            frame=frame,
             frame_idx=frame_idx,
             timestamp_sec=current_timestamp,
+            camera_id=self.camera_id,
+            tracker=self.tracker,
+            face_engine=self.engine,
+            face_index=self.index,
+            alert_service=self.alert_service,
             threshold=self.threshold,
-            source_name=self.camera_id,
+            dispatch_alerts=True,
         )
 
+        self.metrics.faces_detected += result.faces_detected
         self.metrics.tracks_created = len(self.tracker.get_all_tracks())
-
-        # Forward new track alerts to AlertService
-        for alert in new_alerts:
-            self.metrics.alerts_emitted += 1
-            try:
-                self.alert_service.create_alert_from_track_alert(
-                    camera_id=self.camera_id,
-                    track_alert=alert,
-                )
-            except Exception as e:
-                logger.error("[%s] Failed to persist/broadcast alert: %s", self.camera_id, e)
+        self.metrics.alerts_emitted += len(result.new_alerts)
 
         # Periodically update track records in database
-        for t in assigned_tracks:
+        for t in result.assigned_tracks:
             self.alert_service.update_track_state(
                 camera_id=self.camera_id,
                 track_id=t.track_id,
@@ -308,6 +272,5 @@ class CameraWorker(threading.Thread):
                 top_k_similarity=t.top_k_mean_similarity,
                 threshold_matches=t.threshold_match_count,
                 alert_triggered=t.alert_triggered,
-                status="ACTIVE" if t.active else "TERMINATED",
+                status="ACTIVE",
             )
-

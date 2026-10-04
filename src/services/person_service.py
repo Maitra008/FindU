@@ -22,7 +22,7 @@ from src.config import EMBEDDINGS_DIR, PROJECT_ROOT
 from src.db.database import get_session_factory
 from src.db.models import AlertRecord, Person, TrackRecord
 from src.db.repositories.persons import PersonRepository
-from src.face_engine import FaceEngine
+from src.face_engine import FaceEngine, get_face_engine
 from src.registration import FaceRegistrar, RegistrationResult
 from src.services.audit_service import get_audit_service
 from src.workers.worker_manager import get_worker_manager
@@ -52,7 +52,7 @@ class PersonService:
         face_engine: Optional[FaceEngine] = None,
         session_factory=None,
     ):
-        self.engine = face_engine or FaceEngine()
+        self.engine = face_engine or get_face_engine()
         self.registrar = FaceRegistrar(face_engine=self.engine)
         self.session_factory = session_factory or get_session_factory()
         REFERENCE_PHOTOS_DIR.mkdir(parents=True, exist_ok=True)

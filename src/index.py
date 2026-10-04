@@ -257,3 +257,19 @@ class FaceIndex:
             logger.error("Failed to load FAISS index / metadata: %s", e)
             return False
 
+
+
+_face_index_instance: Optional[FaceIndex] = None
+
+
+def get_face_index(dimension: int = 512) -> FaceIndex:
+    """Singleton getter for the shared dynamic FAISS FaceIndex."""
+    global _face_index_instance
+    if _face_index_instance is None:
+        _face_index_instance = FaceIndex(dimension=dimension)
+        from src.config import EMBEDDINGS_DIR, INDEX_PATH, METADATA_PATH
+        if INDEX_PATH.exists() and METADATA_PATH.exists():
+            _face_index_instance.load(INDEX_PATH, METADATA_PATH)
+        elif EMBEDDINGS_DIR.exists():
+            _face_index_instance.build_from_directory(EMBEDDINGS_DIR)
+    return _face_index_instance

@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import auc, roc_auc_score, roc_curve
 
-from src.face_engine import FaceEngine, normalize_embedding
+from src.face_engine import FaceEngine, get_face_engine, normalize_embedding
 from src.registration import FaceRegistrar, RegistrationResult
 
 logger = logging.getLogger(__name__)
@@ -178,7 +178,7 @@ class ModelEvaluator:
         Args:
             face_engine: Existing FaceEngine instance or creates a new one.
         """
-        self.engine = face_engine or FaceEngine()
+        self.engine = face_engine or get_face_engine()
 
     def load_enrollment_templates(
         self,
