@@ -115,7 +115,7 @@ export const AlertFeed: React.FC<AlertFeedProps> = ({
                     <span className="text-slate-500 text-[10px]">SIM:</span>
                     <span
                       className={`font-bold ${
-                        alert.similarity >= 0.89 ? 'text-sky-400' : 'text-slate-400'
+                        alert.similarity >= 0.55 ? 'text-sky-400' : 'text-slate-400'
                       }`}
                     >
                       {(alert.similarity * 100).toFixed(1)}%

@@ -108,7 +108,7 @@ export const ResetTestEnvironmentModal: React.FC<ResetTestEnvironmentModalProps>
                     <li>• User Accounts: {result.preserved.users}</li>
                     <li>• Baseline Identities: {result.preserved.baseline_identities}</li>
                     <li>• Recognition Core: Buffalo_L</li>
-                    <li>• Cosine Threshold: 0.89</li>
+                    <li>• Cosine Threshold: 0.55</li>
                   </ul>
                 </div>
               </div>

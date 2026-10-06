@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import faiss
 import numpy as np
 
+from src.config import DEFAULT_SIMILARITY_THRESHOLD
 from src.face_engine import normalize_embedding
 
 logger = logging.getLogger(__name__)
@@ -104,7 +105,7 @@ class FaceIndex:
         self,
         query_embedding: np.ndarray,
         k: int = 1,
-        threshold: float = 0.89,
+        threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
     ) -> List[MatchResult]:
         """
         Search FAISS index for top-k closest matches for a normalized query embedding.

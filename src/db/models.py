@@ -18,6 +18,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import declarative_base, relationship
+from src.config import DEFAULT_SIMILARITY_THRESHOLD
 
 Base = declarative_base()
 
@@ -229,7 +230,7 @@ class AlertRecord(Base):
     similarity = Column(Float, nullable=False)
     max_similarity = Column(Float, nullable=False)
     mean_similarity = Column(Float, nullable=False)
-    threshold = Column(Float, default=0.89, nullable=False)
+    threshold = Column(Float, default=DEFAULT_SIMILARITY_THRESHOLD, nullable=False)
     timestamp = Column(Float, nullable=False)
     frame_idx = Column(Integer, default=0, nullable=False)
     bbox = Column(Text, nullable=False)  # JSON encoded [x1, y1, x2, y2]

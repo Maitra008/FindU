@@ -233,11 +233,11 @@ def test_two_people_distinct_track_ids():
 
 
 def test_one_matched_person_exactly_one_alert():
-    """Test G: Track exceeding threshold across multiple frames triggers exactly ONE alert."""
-    tracker = FaceTracker(iou_threshold=0.30, max_missed_frames=5)
+    """Test G: Track exceeding threshold across multiple frames triggers exactly ONE alert on 2nd confirmation."""
+    tracker = FaceTracker(iou_threshold=0.30, max_missed_frames=5, min_confirmations=2)
     all_dispatched_alerts = []
 
-    # 10 consecutive frames, all matching person_01 above threshold 0.89
+    # 10 consecutive frames, all matching person_01 above threshold 0.55
     for f in range(10):
         det = DetectionItem(
             bbox=[100, 100, 200, 200],
@@ -246,8 +246,9 @@ def test_one_matched_person_exactly_one_alert():
             person_id="person_01",
             person_name="Person 01",
             is_match=True,
+            quality_passed=True,
         )
-        _, alerts = tracker.update([det], frame_idx=f, timestamp_sec=f * 0.5, threshold=0.89)
+        _, alerts = tracker.update([det], frame_idx=f, timestamp_sec=f * 0.5, threshold=0.55)
         all_dispatched_alerts.extend(alerts)
 
     # Crucial guarantee: Exactly ONE alert dispatched for TRACK-0001
@@ -256,14 +257,14 @@ def test_one_matched_person_exactly_one_alert():
     assert alert.track_id == "TRACK-0001"
     assert alert.person_id == "person_01"
     assert alert.person_name == "Person 01"
-    assert alert.frame_idx == 0
-    assert alert.timestamp_sec == 0.0
+    assert alert.frame_idx == 1  # 2nd confirmation triggers alert
+    assert alert.timestamp_sec == 0.5
     assert alert.alert_triggered is True
 
 
 def test_unknown_person_track_exists_no_alert():
     """Test H: Unknown person creates a track but never triggers a potential-match alert."""
-    tracker = FaceTracker(iou_threshold=0.30, max_missed_frames=5)
+    tracker = FaceTracker(iou_threshold=0.30, max_missed_frames=5, min_confirmations=2)
     all_alerts = []
 
     for f in range(8):
@@ -274,8 +275,9 @@ def test_unknown_person_track_exists_no_alert():
             person_id=None,
             person_name="Unknown",
             is_match=False,
+            quality_passed=True,
         )
-        assigned, alerts = tracker.update([det], frame_idx=f, timestamp_sec=f * 0.5, threshold=0.89)
+        assigned, alerts = tracker.update([det], frame_idx=f, timestamp_sec=f * 0.5, threshold=0.55)
         all_alerts.extend(alerts)
 
     assert len(all_alerts) == 0
@@ -287,28 +289,29 @@ def test_unknown_person_track_exists_no_alert():
     assert all_tracks[0].threshold_match_count == 0
 
 
-def test_threshold_below_089_no_alert():
-    """Test I: Similarity below 0.89 (e.g. 0.85) must NOT trigger a potential-match alert."""
-    tracker = FaceTracker(iou_threshold=0.30, max_missed_frames=5)
+def test_threshold_below_055_no_alert():
+    """Test I: Similarity below 0.55 (e.g. 0.45) must NOT trigger a potential-match alert."""
+    tracker = FaceTracker(iou_threshold=0.30, max_missed_frames=5, min_confirmations=2)
 
     det = DetectionItem(
         bbox=[100, 100, 200, 200],
         confidence=0.95,
-        similarity=0.85,
+        similarity=0.45,
         person_id="person_01",
         person_name="Person 01",
         is_match=False,
+        quality_passed=True,
     )
 
-    assigned, alerts = tracker.update([det], frame_idx=0, timestamp_sec=0.0, threshold=0.89)
+    assigned, alerts = tracker.update([det], frame_idx=0, timestamp_sec=0.0, threshold=0.55)
     assert len(alerts) == 0
     assert assigned[0].alert_triggered is False
     assert assigned[0].threshold_match_count == 0
 
 
-def test_threshold_above_089_triggers_alert():
-    """Test J: Similarity >= 0.89 (e.g. 0.93) triggers a potential-match alert."""
-    tracker = FaceTracker(iou_threshold=0.30, max_missed_frames=5)
+def test_threshold_above_055_triggers_alert():
+    """Test J: Similarity >= 0.55 (e.g. 0.93) triggers alert after 2 confirmations."""
+    tracker = FaceTracker(iou_threshold=0.30, max_missed_frames=5, min_confirmations=2)
 
     det = DetectionItem(
         bbox=[100, 100, 200, 200],
@@ -317,15 +320,18 @@ def test_threshold_above_089_triggers_alert():
         person_id="person_01",
         person_name="Person 01",
         is_match=True,
+        quality_passed=True,
     )
 
-    assigned, alerts = tracker.update([det], frame_idx=0, timestamp_sec=0.0, threshold=0.89)
-    assert len(alerts) == 1
-    assert alerts[0].track_id == "TRACK-0001"
-    assert alerts[0].person_id == "person_01"
-    assert alerts[0].similarity == pytest.approx(0.93)
-    assert alerts[0].alert_triggered is True
-    assert assigned[0].alert_triggered is True
+    assigned1, alerts1 = tracker.update([det], frame_idx=0, timestamp_sec=0.0, threshold=0.55)
+    assert len(alerts1) == 0  # Requires 2 confirmations
+    assigned2, alerts2 = tracker.update([det], frame_idx=1, timestamp_sec=0.5, threshold=0.55)
+    assert len(alerts2) == 1
+    assert alerts2[0].track_id == "TRACK-0001"
+    assert alerts2[0].person_id == "person_01"
+    assert alerts2[0].similarity == pytest.approx(0.93)
+    assert alerts2[0].alert_triggered is True
+    assert assigned2[0].alert_triggered is True
 
 
 def test_score_aggregation_and_top_k():
@@ -352,8 +358,9 @@ def test_score_aggregation_and_top_k():
             person_id="person_01",
             person_name="Person 01",
             is_match=True,
+            quality_passed=True,
         )
-        track.update(det, frame_idx=i, timestamp_sec=i * 0.5, threshold=0.89, top_k=3)
+        track.update(det, frame_idx=i, timestamp_sec=i * 0.5, threshold=0.55, top_k=3)
 
     all_scores = [0.80, 0.90, 0.70, 0.95, 0.85]
     expected_max = max(all_scores)  # 0.95
@@ -364,19 +371,19 @@ def test_score_aggregation_and_top_k():
     assert track.max_similarity == pytest.approx(expected_max, abs=1e-4)
     assert track.mean_similarity == pytest.approx(expected_mean, abs=1e-4)
     assert track.top_k_mean_similarity == pytest.approx(expected_top_3_mean, abs=1e-4)
-    assert track.threshold_match_count == 2  # 0.90 and 0.95 >= 0.89
+    assert track.threshold_match_count == 4  # 0.90, 0.70, 0.95, 0.85 all >= 0.55
 
 
 def test_cli_and_recognizer_integration_defaults():
-    """Test K: Verify VideoRecognizer uses default tracking parameters and threshold 0.89."""
+    """Test K: Verify VideoRecognizer uses default tracking parameters and threshold 0.55."""
     config = RecognitionConfig()
-    assert config.threshold == pytest.approx(0.89)
+    assert config.threshold == pytest.approx(0.55)
     assert config.iou_threshold == pytest.approx(0.30)
     assert config.max_missed_frames == 5
     assert config.track_top_k == 3
 
     recognizer = VideoRecognizer()
-    assert recognizer.threshold == pytest.approx(0.89)
+    assert recognizer.threshold == pytest.approx(0.55)
     assert recognizer.iou_threshold == pytest.approx(0.30)
     assert recognizer.max_missed_frames == 5
     assert recognizer.track_top_k == 3

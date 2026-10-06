@@ -9,6 +9,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+from src.config import DEFAULT_SIMILARITY_THRESHOLD, DEFAULT_TEMPORAL_CONFIRMATIONS
+
 logger = logging.getLogger(__name__)
 
 
@@ -53,6 +55,9 @@ class DetectionItem:
     is_match: bool
     embedding: Optional[Any] = None
     face_idx: int = 0
+    quality_passed: bool = True
+    rejection_reason: Optional[str] = None
+    quality_reasons: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -133,9 +138,10 @@ class Track:
         det: DetectionItem,
         frame_idx: int,
         timestamp_sec: float,
-        threshold: float = 0.89,
+        threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
         top_k: int = 3,
         source_name: str = "",
+        min_confirmations: int = DEFAULT_TEMPORAL_CONFIRMATIONS,
     ) -> Optional[TrackAlert]:
         """
         Update track with a newly associated detection and recalculate aggregate scores.
@@ -147,6 +153,7 @@ class Track:
             threshold: Operating recognition similarity threshold.
             top_k: Number of highest scores to average for top_k_mean_similarity.
             source_name: Name/identifier of video or camera source.
+            min_confirmations: Required matching detections before firing alert.
 
         Returns:
             Optional TrackAlert if this update triggered a new potential-match alert.
@@ -161,7 +168,7 @@ class Track:
         sim = det.similarity
         self.similarity_scores.append(sim)
 
-        if sim >= threshold:
+        if det.is_match and det.quality_passed and sim >= threshold:
             self.threshold_match_count += 1
 
         # Update best identity attribution
@@ -190,11 +197,18 @@ class Track:
             "person_id": det.person_id,
             "person_name": det.person_name,
             "is_match": det.is_match,
+            "quality_passed": det.quality_passed,
         })
 
-        # Check alert trigger: exactly ONE alert upon first threshold crossing
+        # Check alert trigger: exactly ONE alert upon reaching min_confirmations
         alert_event = None
-        if det.is_match and det.person_id and sim >= threshold and not self.alert_triggered:
+        if (
+            det.is_match
+            and det.quality_passed
+            and det.person_id
+            and self.threshold_match_count >= min_confirmations
+            and not self.alert_triggered
+        ):
             self.alert_triggered = True
             alert_event = TrackAlert(
                 track_id=self.track_id,
@@ -219,7 +233,7 @@ class Track:
 
 class FaceTracker:
     """
-    IoU-based temporal face tracker with score aggregation and single-alert dispatch.
+    IoU-based temporal face tracker with score aggregation, temporal confirmation, and single-alert dispatch.
     """
 
     def __init__(
@@ -227,6 +241,7 @@ class FaceTracker:
         iou_threshold: float = 0.30,
         max_missed_frames: int = 5,
         top_k: int = 3,
+        min_confirmations: int = DEFAULT_TEMPORAL_CONFIRMATIONS,
     ):
         """
         Initialize FaceTracker.
@@ -235,10 +250,12 @@ class FaceTracker:
             iou_threshold: Minimum IoU overlap required to match a detection to an existing track.
             max_missed_frames: Consecutive frames without detection before a track is terminated.
             top_k: Number of highest scores to average for track score aggregation.
+            min_confirmations: Required matching detections before firing an alert.
         """
         self.iou_threshold = iou_threshold
         self.max_missed_frames = max_missed_frames
         self.top_k = top_k
+        self.min_confirmations = min_confirmations
         self.active_tracks: List[Track] = []
         self.terminated_tracks: List[Track] = []
         self.next_track_num: int = 1
@@ -249,8 +266,9 @@ class FaceTracker:
         detections: List[DetectionItem],
         frame_idx: int,
         timestamp_sec: float,
-        threshold: float = 0.89,
+        threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
         source_name: str = "",
+        min_confirmations: Optional[int] = None,
     ) -> Tuple[List[Track], List[TrackAlert]]:
         """
         Process frame detections, update active tracks, spawn new tracks, terminate dead tracks.
@@ -259,14 +277,18 @@ class FaceTracker:
             detections: List of DetectionItem from current frame.
             frame_idx: Current integer frame index.
             timestamp_sec: Current video timestamp in seconds.
-            threshold: Recognition similarity threshold (default: 0.89).
+            threshold: Recognition similarity threshold (default: 0.55).
             source_name: Optional video/camera stream identifier.
+            min_confirmations: Optional override for confirmation count requirement.
 
         Returns:
             Tuple of:
               - assigned_tracks: List of Track instances corresponding 1-to-1 with input detections.
               - new_alerts: List of TrackAlert dispatched during this frame.
         """
+        if min_confirmations is None:
+            min_confirmations = self.min_confirmations
+
         new_alerts: List[TrackAlert] = []
         assigned_tracks: List[Optional[Track]] = [None] * len(detections)
 
@@ -274,7 +296,13 @@ class FaceTracker:
             # All detections start new tracks
             for d_idx, det in enumerate(detections):
                 track = self._create_new_track(det, frame_idx, timestamp_sec, threshold, self.top_k)
-                if det.is_match and det.person_id and det.similarity >= threshold:
+                if (
+                    det.is_match
+                    and det.quality_passed
+                    and det.person_id
+                    and track.threshold_match_count >= min_confirmations
+                    and not track.alert_triggered
+                ):
                     track.alert_triggered = True
                     alert = TrackAlert(
                         track_id=track.track_id,
@@ -314,6 +342,7 @@ class FaceTracker:
                 threshold=threshold,
                 top_k=self.top_k,
                 source_name=source_name,
+                min_confirmations=min_confirmations,
             )
             if alert:
                 new_alerts.append(alert)
@@ -339,7 +368,13 @@ class FaceTracker:
         for det_idx in unmatched_det_indices:
             det = detections[det_idx]
             track = self._create_new_track(det, frame_idx, timestamp_sec, threshold, self.top_k)
-            if det.is_match and det.person_id and det.similarity >= threshold:
+            if (
+                det.is_match
+                and det.quality_passed
+                and det.person_id
+                and track.threshold_match_count >= min_confirmations
+                and not track.alert_triggered
+            ):
                 track.alert_triggered = True
                 alert = TrackAlert(
                     track_id=track.track_id,
@@ -414,7 +449,7 @@ class FaceTracker:
         self.next_track_num += 1
 
         sim = det.similarity
-        is_threshold_match = 1 if sim >= threshold else 0
+        is_threshold_match = 1 if (det.is_match and det.quality_passed and sim >= threshold) else 0
         matched_id = det.person_id if (det.is_match and det.person_id) else None
         matched_name = det.person_name if (det.is_match and det.person_id) else "Unknown"
 
@@ -437,6 +472,7 @@ class FaceTracker:
                 "person_id": det.person_id,
                 "person_name": det.person_name,
                 "is_match": det.is_match,
+                "quality_passed": det.quality_passed,
             }],
             max_similarity=sim,
             mean_similarity=sim,

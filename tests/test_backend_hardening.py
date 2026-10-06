@@ -19,8 +19,8 @@ def _det(bbox, similarity=0.2, person_id=None, name="Unknown"):
     )
 
 
-def test_frozen_runtime_threshold():
-    assert DEFAULT_SIMILARITY_THRESHOLD == 0.89
+def test_calibrated_runtime_threshold():
+    assert DEFAULT_SIMILARITY_THRESHOLD == 0.55
 
 
 def test_new_track_starts_with_zero_missed_frames():
@@ -29,7 +29,7 @@ def test_new_track_starts_with_zero_missed_frames():
         [_det([0, 0, 100, 100], similarity=0.2)],
         frame_idx=0,
         timestamp_sec=0.0,
-        threshold=0.89,
+        threshold=0.55,
     )
     assert len(tracks) == 1
     assert tracks[0].missed_frames == 0
@@ -43,21 +43,23 @@ def test_new_track_does_not_terminate_on_creation_frame():
         [_det([0, 0, 100, 100])],
         frame_idx=0,
         timestamp_sec=0.0,
-        threshold=0.89,
+        threshold=0.55,
     )
     assert tracks[0].active is True
     assert len(tracker.terminated_tracks) == 0
 
 
 def test_single_track_produces_one_alert():
-    tracker = FaceTracker(iou_threshold=0.3, max_missed_frames=2)
+    tracker = FaceTracker(iou_threshold=0.3, max_missed_frames=2, min_confirmations=2)
     det = _det([0, 0, 100, 100], similarity=0.93, person_id="person_x", name="Person X")
 
-    _, first_alerts = tracker.update([det], 0, 0.0, 0.89)
-    _, second_alerts = tracker.update([det], 1, 0.5, 0.89)
+    _, first_alerts = tracker.update([det], 0, 0.0, 0.55)
+    _, second_alerts = tracker.update([det], 1, 0.5, 0.55)
+    _, third_alerts = tracker.update([det], 2, 1.0, 0.55)
 
-    assert len(first_alerts) == 1
-    assert len(second_alerts) == 0
+    assert len(first_alerts) == 0  # 1st observation -> no alert yet
+    assert len(second_alerts) == 1  # 2nd confirmation -> exactly 1 alert
+    assert len(third_alerts) == 0  # Deduplication invariant: no 2nd alert
     assert tracker.active_tracks[0].alert_triggered is True
 
 

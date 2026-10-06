@@ -17,7 +17,7 @@ Strict L2 Unit Normalization
     ↓
 Canonical FaceIndex (Shared Dynamic FAISS Cosine Index)
     ↓
-Canonical Similarity Threshold (0.89)
+Canonical Similarity Threshold (0.55)
     ↓
 FaceTracker (IoU Temporal Association + Top-K Aggregation)
     ↓
@@ -32,6 +32,7 @@ import numpy as np
 
 from src.config import DEFAULT_SIMILARITY_THRESHOLD
 from src.face_engine import DetectedFace, FaceEngine, get_face_engine
+from src.face_quality import FaceQualityGate, FaceQualityResult, get_face_quality_gate
 from src.index import FaceIndex, MatchResult, get_face_index
 from src.services.alert_service import AlertService, get_alert_service
 from src.tracker import DetectionItem, FaceTracker, Track, TrackAlert
@@ -59,6 +60,7 @@ def recognize_frame(
     face_engine: Optional[FaceEngine] = None,
     face_index: Optional[FaceIndex] = None,
     alert_service: Optional[AlertService] = None,
+    face_quality_gate: Optional[FaceQualityGate] = None,
     threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
     dispatch_alerts: bool = True,
 ) -> FrameRecognitionResult:
@@ -77,7 +79,8 @@ def recognize_frame(
         face_engine: Canonical FaceEngine instance (defaults to shared singleton).
         face_index: Shared FAISS FaceIndex instance (defaults to shared singleton).
         alert_service: AlertService for alert persistence & dispatch (defaults to singleton).
-        threshold: Cosine similarity threshold for identity match (default: 0.89).
+        face_quality_gate: FaceQualityGate instance (defaults to shared singleton).
+        threshold: Cosine similarity threshold for identity match (default: 0.55).
         dispatch_alerts: Whether to persist/broadcast alerts via AlertService.
 
     Returns:
@@ -85,15 +88,36 @@ def recognize_frame(
     """
     engine = face_engine or get_face_engine()
     index = face_index or get_face_index()
+    quality_gate = face_quality_gate or get_face_quality_gate()
 
     # Step 1-3: SCRFD Detection + ArcFace Embedding + L2 Normalization
     faces: List[DetectedFace] = engine.detect_and_embed(frame)
 
-    # Step 4-5: FAISS Cosine Similarity Search against registered identities
+    # Step 4: Face Quality Evaluation + FAISS Cosine Similarity Search
     detection_items: List[DetectionItem] = []
     potential_matches = 0
 
     for face_idx, face in enumerate(faces):
+        quality_res = quality_gate.evaluate_face(face, frame)
+
+        if not quality_res.passed:
+            detection_items.append(
+                DetectionItem(
+                    bbox=face.bbox,
+                    confidence=face.confidence,
+                    similarity=0.0,
+                    person_id=None,
+                    person_name="Unknown",
+                    is_match=False,
+                    embedding=face.normalized_embedding,
+                    face_idx=face_idx,
+                    quality_passed=False,
+                    rejection_reason=quality_res.rejection_reasons[0] if quality_res.rejection_reasons else "quality_rejected",
+                    quality_reasons=quality_res.rejection_reasons,
+                )
+            )
+            continue
+
         search_results = index.search(
             query_embedding=face.normalized_embedding,
             k=1,
@@ -114,6 +138,9 @@ def recognize_frame(
                 is_match=is_match,
                 embedding=face.normalized_embedding,
                 face_idx=face_idx,
+                quality_passed=True,
+                rejection_reason=None,
+                quality_reasons=[],
             )
         )
 

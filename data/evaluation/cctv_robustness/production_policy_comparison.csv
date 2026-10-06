@@ -1,0 +1,5 @@
+Test_Stream,Target_ID,Frames_Sampled,Old_Threshold,Old_Quality_Gate,Old_Temporal_Conf,Old_True_Alerts,Old_False_Alerts,Old_Latency_ms,New_Threshold,New_Quality_Gate,New_Temporal_Conf,New_True_Alerts,New_False_Alerts,New_Quality_Rejections,New_Latency_ms
+Camera 1 (Person 02 Daylight),person_02,8,0.89,Disabled,1,1,0,170.08,0.55,"Enabled (>=70px, conf>=0.7, blur>=25)",2,1,0,0,160.83
+Camera 2 (Person 04 Walkway),person_04,8,0.89,Disabled,1,1,0,157.52,0.55,"Enabled (>=70px, conf>=0.7, blur>=25)",2,1,0,0,174.06
+One Person Walking (Person 02 CCTV),person_02,10,0.89,Disabled,1,1,0,163.56,0.55,"Enabled (>=70px, conf>=0.7, blur>=25)",2,1,0,0,158.42
+Real Subject Webcam Stream (Rahul),rahul_05702c,18,0.89,Disabled,1,0,0,185.21,0.55,"Enabled (>=70px, conf>=0.7, blur>=25)",2,1,0,3,177.46

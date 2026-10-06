@@ -400,7 +400,7 @@ export const MissingPersonsView: React.FC<MissingPersonsViewProps> = ({
               <div className="text-[11px]">
                 <div className="font-bold text-emerald-300">ArcFace 512-d Template Active</div>
                 <div className="text-slate-500 text-[10px]">
-                  Cosine Similarity Cutoff: 0.89 (Frozen Threshold)
+                  Cosine Similarity Cutoff: 0.55 (Calibrated Policy)
                 </div>
               </div>
             </div>

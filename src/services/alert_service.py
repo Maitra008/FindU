@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 import asyncio
 from sqlalchemy.orm import Session
 
+from src.config import DEFAULT_SIMILARITY_THRESHOLD
 from src.api.websocket import WebSocketConnectionManager, ws_manager
 from src.db.database import get_session_factory
 from src.db.models import AlertRecord, TrackRecord
@@ -82,7 +83,7 @@ class AlertService:
         alert_id: Optional[str] = None,
         max_similarity: Optional[float] = None,
         mean_similarity: Optional[float] = None,
-        threshold: float = 0.89,
+        threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
         frame_idx: int = 0,
         snapshot_path: Optional[str] = None,
         status: str = "NEW",

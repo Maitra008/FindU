@@ -64,7 +64,7 @@ export const Header: React.FC<HeaderProps> = ({
           </h1>
         </div>
         <span className="text-xs px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono">
-          Threshold: 0.89
+          Threshold: 0.55
         </span>
       </div>
 
